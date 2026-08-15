@@ -1,22 +1,29 @@
 # Dose — personal peptide & supplement tracker
 
 A private tracker for reconstituted peptide vials and daily supplements.
-It comes in two flavors, both backed by the same Firebase project and the
+It comes in three flavors, all backed by the same Firebase project and the
 same Firestore data, on the same account:
 
 - **[`ios-app/`](ios-app/README.md) — a real iOS app** (Expo / React
   Native). Native tabs, the system date picker, haptics, CSV export through
   the iOS share sheet. Runs on your phone via Expo Go, or as a proper
   home-screen app via an EAS build.
+- **[`android-app/`](android-app/README.md) — a real Android app** (Expo /
+  React Native). The same screens, done the Android way: Material ripples
+  and tab indicator, the Material date dialog, an adaptive launcher icon,
+  edge-to-edge system bars, CSV export through the Android share sheet.
+  Expo Go for development, or sideload an APK from an EAS build — no store
+  account needed.
 - **the repo root — the web app**, documented below. Plain files on GitHub
   Pages.
 
 They stay in sync because they read and write the exact same documents —
 log a dose on your phone and it's on the web version, and vice versa. Use
-whichever you like; neither replaces the other.
+whichever you like; none replaces the others.
 
-The rest of this file is about the web version. For the iOS app, see
-**[ios-app/README.md](ios-app/README.md)**.
+The rest of this file is about the web version. For the phone apps, see
+**[ios-app/README.md](ios-app/README.md)** and
+**[android-app/README.md](android-app/README.md)**.
 
 ## The web version (plain-files edition)
 
@@ -164,7 +171,7 @@ phone a few seconds later and it's live.
 Same backlog as before — nothing here changed with this rewrite:
 
 - Scheduled reminders (needs Firebase Cloud Messaging on the web; the iOS
-  app can do this with on-device local notifications instead)
+  and Android apps can do this with on-device local notifications instead)
 - Dosing schedules with planned-vs-actual tracking
 - Titration / cycling support
 - Injection site rotation
