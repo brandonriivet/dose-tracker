@@ -1,10 +1,29 @@
-# Dose — personal peptide & supplement tracker (plain-files edition)
+# Dose — personal peptide & supplement tracker
 
-A private, phone-installable web app for tracking reconstituted peptide
-vials and daily supplements. This version is **plain HTML/CSS/JS — no build
-step, no npm, no GitHub Actions.** Upload the files, flip one GitHub Pages
-setting, done. Updating later is just: edit a file, save, refresh your
-phone a minute later.
+A private tracker for reconstituted peptide vials and daily supplements.
+It comes in two flavors, both backed by the same Firebase project and the
+same Firestore data, on the same account:
+
+- **[`ios-app/`](ios-app/README.md) — a real iOS app** (Expo / React
+  Native). Native tabs, the system date picker, haptics, CSV export through
+  the iOS share sheet. Runs on your phone via Expo Go, or as a proper
+  home-screen app via an EAS build.
+- **the repo root — the web app**, documented below. Plain files on GitHub
+  Pages.
+
+They stay in sync because they read and write the exact same documents —
+log a dose on your phone and it's on the web version, and vice versa. Use
+whichever you like; neither replaces the other.
+
+The rest of this file is about the web version. For the iOS app, see
+**[ios-app/README.md](ios-app/README.md)**.
+
+## The web version (plain-files edition)
+
+A private, phone-installable web app. This version is **plain HTML/CSS/JS —
+no build step, no npm, no GitHub Actions.** Upload the files, flip one
+GitHub Pages setting, done. Updating later is just: edit a file, save,
+refresh your phone a minute later.
 
 ## How this is different from a "normal" React app
 
@@ -144,7 +163,8 @@ phone a few seconds later and it's live.
 
 Same backlog as before — nothing here changed with this rewrite:
 
-- Scheduled reminders (needs Firebase Cloud Messaging)
+- Scheduled reminders (needs Firebase Cloud Messaging on the web; the iOS
+  app can do this with on-device local notifications instead)
 - Dosing schedules with planned-vs-actual tracking
 - Titration / cycling support
 - Injection site rotation
