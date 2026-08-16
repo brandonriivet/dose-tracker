@@ -227,6 +227,43 @@ JS SDK, not the native Firebase SDKs, so there is no `google-services.json`,
 no `GoogleService-Info.plist`, and no SHA-1 to register — which is also why
 renaming the bundle ID changed nothing.
 
+## Testing the screens behind the login
+
+```bash
+npm run test:e2e
+```
+
+Builds the web bundle pointed at local Firebase emulators, seeds a user into
+the Auth emulator, and drives every authenticated screen in Chromium:
+log in, the Log tab and its calendar, adding a vial (which is what exercises
+`DateField`), logging and saving a dose, History, the CSV download, Settings
+and the danger zone. 17 checks, screenshots in `e2e/screenshots/`, and any
+console error fails the run.
+
+**No credentials and no production data.** The emulators are a throwaway
+local Auth and Firestore; the test user exists only inside them. The real
+project is never contacted.
+
+Requires a Chromium for Playwright (`npx playwright install chromium`), and
+Java, which the Firestore emulator needs.
+
+Because every screen is shared code, this covers what iOS and Android render
+too. What it does *not* cover is the `.ios`/`.android` halves of the
+platform-split files — the native date pickers and the share sheet still
+need a device.
+
+### The one trap in here
+
+`EXPO_PUBLIC_*` values are inlined at build time, but **Metro keys its
+transform cache without them**. So a normal build run straight after an e2e
+build can reuse cached modules with `EXPO_PUBLIC_FIREBASE_EMULATOR=1` still
+baked in — an app shipped pointing at `localhost`. That is not theoretical;
+it happened here and is why `bundle:e2e` uses `--clear`, writes to its own
+`.expo-export-e2e/`, and drops the Metro cache when the run ends.
+
+If you ever suspect it, `expo export --clear` settles it: grep the bundle
+for `LOCAL EMULATORS` and it should not be there.
+
 ## Checks
 
 ```bash

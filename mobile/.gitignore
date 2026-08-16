@@ -40,7 +40,14 @@ yarn-error.*
 /ios
 /android
 
+# e2e: rules copied in from the repo root at run time, and run artefacts
+e2e/.firestore.rules
+e2e/screenshots/
+firestore-debug.log
+ui-debug.log
+
 # Local export output
 .expo-export/
 .expo-export-ios/
 .expo-export-web/
+.expo-export-e2e/

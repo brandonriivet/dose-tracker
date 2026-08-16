@@ -16,8 +16,12 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase-config';
+import { connectEmulators } from './firebase.emulator';
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// No-op unless the app was built with EXPO_PUBLIC_FIREBASE_EMULATOR=1.
+connectEmulators(auth, db);
