@@ -1,0 +1,42 @@
+{
+  "name": "dose-tracker-mobile",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "bundle:ios": "expo export --platform ios --output-dir .expo-export-ios",
+    "bundle:android": "expo export --platform android --output-dir .expo-export"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/datetimepicker": "^9.1.0",
+    "expo": "~57.0.13",
+    "expo-constants": "~57.0.11",
+    "expo-file-system": "~57.0.3",
+    "expo-haptics": "~57.0.1",
+    "expo-linking": "~57.0.6",
+    "expo-navigation-bar": "~57.0.2",
+    "expo-router": "~57.0.13",
+    "expo-sharing": "~57.0.12",
+    "expo-splash-screen": "~57.0.6",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.2",
+    "firebase": "^12.17.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "^15.15.4"
+  },
+  "private": true,
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "~5.9"
+  },
+  "overrides": {
+    "react-dom": "19.2.3"
+  }
+}
