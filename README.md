@@ -45,6 +45,10 @@ the same component-based React you'd recognize from before.
   Nothing is ever deleted; unsaved drafts just don't carry over.
 - **Peptides / Supplements** tabs — your inventory. Edit an existing item's
   schedule (time of day + days of week) any time your plan changes.
+- **Blend vials** — mark a peptide vial as a blend (multiple peptides
+  reconstituted together, up to 4), each with its own name and mg amount.
+  Shows a "Blend" badge on the card and the breakdown in the detail view;
+  editable any time from the vial's Details.
 - **Weight tab** — a 30-day line chart of your logged weight, plus the
   existing recent-entries list.
 - **History** — merged timeline, with per-day and "export all" CSV

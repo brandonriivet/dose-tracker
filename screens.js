@@ -279,6 +279,51 @@ function dayShortSummary(daysOfWeek) {
   return DOW_KEYS.filter((k) => daysOfWeek.includes(k)).map((k) => DOW_LABELS[DOW_KEYS.indexOf(k)]).join(' ');
 }
 
+function blankBlendComponents() {
+  return [{ name: '', mg: '' }, { name: '', mg: '' }, { name: '', mg: '' }, { name: '', mg: '' }];
+}
+
+// Shared by AddPeptideModal (new vial) and PeptideCard (editing an existing
+// one) - a checkbox that reveals up to 4 {name, mg} rows for vials that mix
+// more than one peptide together.
+function BlendEditor({ isBlend, setIsBlend, components, setComponents }) {
+  function updateComponent(i, field, value) {
+    setComponents(components.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
+  }
+  const sum = components.reduce((s, c) => s + (Number(c.mg) || 0), 0);
+
+  return html`
+    <div>
+      <label className="flex items-center gap-2 text-sm text-paper-dim mb-2">
+        <input type="checkbox" checked=${isBlend} onChange=${(e) => setIsBlend(e.target.checked)} />
+        This is a blend (multiple peptides in one vial)
+      </label>
+      ${isBlend && html`
+        <div className="space-y-2">
+          ${components.map((c, i) => html`
+            <div key=${i} className="flex gap-2">
+              <input
+                value=${c.name}
+                onChange=${(e) => updateComponent(i, 'name', e.target.value)}
+                placeholder=${`Peptide ${i + 1} name`}
+                className="input flex-1"
+              />
+              <input
+                type="number" step="any" inputMode="decimal"
+                value=${c.mg}
+                onChange=${(e) => updateComponent(i, 'mg', e.target.value)}
+                placeholder="mg"
+                className="input w-20 font-mono"
+              />
+            </div>
+          `)}
+          ${sum > 0 && html`<p className="text-xs text-paper-faint">Parts sum to ${sum} mg</p>`}
+        </div>
+      `}
+    </div>
+  `;
+}
+
 /* ===================== Log screen ===================== */
 
 const PERIODS = [
@@ -868,6 +913,14 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
   const [editSchedule, setEditSchedule] = useState(p.schedule || 'morning');
   const [editDays, setEditDays] = useState(p.daysOfWeek && p.daysOfWeek.length ? p.daysOfWeek : ALL_DAYS);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editIsBlend, setEditIsBlend] = useState(!!p.isBlend);
+  const [editBlendComponents, setEditBlendComponents] = useState(() => {
+    const existing = Array.isArray(p.blendComponents) ? p.blendComponents : [];
+    const padded = [...existing];
+    while (padded.length < 4) padded.push({ name: '', mg: '' });
+    return padded;
+  });
+  const [blendSavedFlash, setBlendSavedFlash] = useState(false);
 
   const left = remainingMg(p, doses.filter((d) => d.peptideId === p.id));
   const pct = p.vialAmountMg ? left / p.vialAmountMg : 0;
@@ -879,6 +932,13 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
     setTimeout(() => setSavedFlash(false), 1200);
   }
 
+  async function saveBlend() {
+    const filtered = editBlendComponents.filter((c) => c.name.trim() && c.mg !== '');
+    await updatePeptide(uid, p.id, { isBlend: editIsBlend, blendComponents: filtered });
+    setBlendSavedFlash(true);
+    setTimeout(() => setBlendSavedFlash(false), 1200);
+  }
+
   return html`
     <${Card} className="mb-3">
       <div className="flex items-center justify-between mb-2">
@@ -887,6 +947,9 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
           <span className="text-[10px] uppercase tracking-wide text-paper-faint border border-ink-line rounded px-1.5 py-0.5 shrink-0">
             ${scheduleBadge(p.schedule)} · ${dayShortSummary(p.daysOfWeek)}
           </span>
+          ${p.isBlend && html`
+            <span className="text-[10px] uppercase tracking-wide text-teal-bright border border-teal/40 rounded px-1.5 py-0.5 shrink-0">Blend</span>
+          `}
         </div>
         <${LabelChip} tone="amber" text=${`${concentration(p).toFixed(2)} mg/mL`} />
       </div>
@@ -926,6 +989,14 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
             <${DaySelector} value=${editDays} onChange=${setEditDays} />
             <${Button} className="w-full mt-2" onClick=${saveSchedule}>
               ${savedFlash ? 'Saved ✓' : 'Save schedule'}
+            <//>
+          </div>
+
+          <div className="pt-3">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Vial composition</p>
+            <${BlendEditor} isBlend=${editIsBlend} setIsBlend=${setEditIsBlend} components=${editBlendComponents} setComponents=${setEditBlendComponents} />
+            <${Button} className="w-full mt-2" onClick=${saveBlend}>
+              ${blendSavedFlash ? 'Saved ✓' : 'Save blend'}
             <//>
           </div>
 
@@ -1025,6 +1096,8 @@ function AddPeptideModal({ open, onClose }) {
   const [logUnit, setLogUnit] = useState('mcg');
   const [schedule, setSchedule] = useState('morning');
   const [daysOfWeek, setDaysOfWeek] = useState(ALL_DAYS);
+  const [isBlend, setIsBlend] = useState(false);
+  const [blendComponents, setBlendComponents] = useState(blankBlendComponents());
   const [reconstitutedDate, setReconstitutedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1035,8 +1108,10 @@ function AddPeptideModal({ open, onClose }) {
     e.preventDefault();
     setBusy(true);
     try {
+      const filteredBlend = blendComponents.filter((c) => c.name.trim() && c.mg !== '');
       await addPeptide(user.uid, {
-        name, source, reorderUrl, vialAmountMg, bacWaterMl, unitsPerMl, logUnit, schedule, daysOfWeek, reconstitutedDate, notes,
+        name, source, reorderUrl, vialAmountMg, bacWaterMl, unitsPerMl, logUnit, schedule, daysOfWeek,
+        isBlend, blendComponents: filteredBlend, reconstitutedDate, notes,
       });
       reset();
       onClose();
@@ -1047,6 +1122,7 @@ function AddPeptideModal({ open, onClose }) {
 
   function reset() {
     setName(''); setSource(''); setReorderUrl(''); setVialAmountMg(''); setBacWaterMl(''); setNotes('');
+    setIsBlend(false); setBlendComponents(blankBlendComponents());
   }
 
   return html`
@@ -1076,6 +1152,10 @@ function AddPeptideModal({ open, onClose }) {
         </div>
 
         ${conc && html`<p className="text-sm text-amber-bright font-mono">→ ${conc} mg/mL</p>`}
+
+        <${Field} label="Vial composition">
+          <${BlendEditor} isBlend=${isBlend} setIsBlend=${setIsBlend} components=${blendComponents} setComponents=${setBlendComponents} />
+        <//>
 
         <div className="flex gap-3">
           <${Field} label="Log dose in" className="flex-1">
@@ -1339,6 +1419,14 @@ function ItemDetailModal({ open, onClose, item, kind }) {
             <${DetailRow} label="Concentration" value=${`${concentration(item).toFixed(2)} mg/mL`} />
             <${DetailRow} label=${`mcg per unit (U-${item.unitsPerMl || 100})`} value=${`${mcgPerUnit(item).toFixed(1)} mcg`} />
             <${DetailRow} label="Schedule" value=${scheduleFull(item.schedule)} />
+            ${item.isBlend && Array.isArray(item.blendComponents) && item.blendComponents.length > 0 && html`
+              <div className="pt-1">
+                <p className="text-xs text-paper-dim uppercase tracking-wide mb-1">Blend</p>
+                ${item.blendComponents.map((c, i) => html`
+                  <${DetailRow} key=${i} label=${c.name} value=${`${c.mg} mg`} />
+                `)}
+              </div>
+            `}
             ${item.notes && html`<${DetailRow} label="Notes" value=${item.notes} />`}
           ` : html`
             <${DetailRow} label="Dosage" value=${`${item.dosage} ${item.unit}`} />

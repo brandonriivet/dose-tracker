@@ -284,6 +284,8 @@ export function addPeptide(uid, data) {
     logUnit: data.logUnit || 'mcg',
     schedule: data.schedule || 'morning',
     daysOfWeek: data.daysOfWeek && data.daysOfWeek.length ? data.daysOfWeek : ALL_DAYS,
+    isBlend: !!data.isBlend,
+    blendComponents: data.isBlend && Array.isArray(data.blendComponents) ? data.blendComponents : [],
     reconstitutedDate: data.reconstitutedDate ? Timestamp.fromDate(new Date(data.reconstitutedDate)) : serverTimestamp(),
     status: 'active',
     notes: data.notes || '',
