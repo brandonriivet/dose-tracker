@@ -43,10 +43,18 @@ easier than iOS.
 Console instead, which needs a Google Play developer account (one-off fee).
 Only worth it if you want other people installing this.
 
-The application ID is `com.riivet.dose` (`app.json` → `android.package`) —
-the same reverse-DNS name as the iOS bundle identifier, which is fine and
-normal; the two stores don't share a namespace. `versionCode` is the integer
-Play uses to order builds, and it has to go up on every upload.
+The application ID is `com.nbv.dose` (`app.json` → `android.package`), the
+same reverse-DNS name as the iOS bundle identifier — fine and normal, since
+the two stores don't share a namespace. Once a build is published under an
+application ID, that ID is permanent: Play treats a different one as an
+entirely different app.
+
+`versionCode` is the integer Play uses to order builds, and it has to go up
+on every upload. EAS increments it remotely by default, which means the
+value in `app.json` goes stale — worth knowing, because the Settings screen
+reads it via `expo-constants` and will show the stale number. Set
+`cli.appVersionSource` to `local` in `eas.json` if you'd rather `app.json`
+stay authoritative.
 
 ## Layout
 
