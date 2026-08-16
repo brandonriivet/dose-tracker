@@ -11,12 +11,25 @@ export function registerServiceWorker() {
   if (__DEV__) return;
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+  // Expo inlines experiments.baseUrl here, so this lands on
+  // /dose-tracker/sw.js under GitHub Pages and /sw.js everywhere else.
+  // Registering at the wrong path silently yields a worker whose scope
+  // doesn't cover the app, which looks exactly like no worker at all.
+  const swUrl = `${process.env.EXPO_BASE_URL || ''}/sw.js`;
+
+  const register = () =>
+    navigator.serviceWorker.register(swUrl).catch((err) => {
       // Not fatal — it only costs the offline shell. Common causes are
       // being served over plain http from something other than localhost,
       // or the file 404ing because public/ wasn't copied.
       console.warn('Service worker registration failed:', err);
     });
-  });
+
+  // This runs from a layout effect, and with static rendering the document
+  // has usually finished loading before React mounts — so waiting on the
+  // 'load' event alone means waiting for an event that already fired, and
+  // the worker never registers at all. Check first, listen only if it is
+  // genuinely still loading.
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }

@@ -8,6 +8,11 @@ import { ScrollViewStyleReset } from 'expo-router/html';
 // manifest link, the theme colour the browser paints its chrome with, and
 // Apple's own meta tags, which predate the manifest spec and are still what
 // iOS Safari reads when you "Add to Home Screen".
+// GitHub Pages serves this from a subpath, so every href here has to carry
+// the same prefix Expo puts on the bundle URL. Read at build time, since
+// +html.js only ever runs during the export.
+const BASE = process.env.EXPO_WEB_BASE_URL || '';
+
 export default function Root({ children }) {
   return (
     <html lang="en">
@@ -26,7 +31,7 @@ export default function Root({ children }) {
           content="Personal dosing schedule and daily tracking for peptides and supplements."
         />
 
-        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="manifest" href={`${BASE}/manifest.webmanifest`} />
         {/* Matches the app's ink background, so the browser's own chrome and
             the splash it paints before the bundle loads aren't white. */}
         <meta name="theme-color" content="#0A0908" />
@@ -36,8 +41,8 @@ export default function Root({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Dose" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+        <link rel="apple-touch-icon" href={`${BASE}/icons/icon-192.png`} />
+        <link rel="icon" type="image/png" sizes="512x512" href={`${BASE}/icons/icon-512.png`} />
 
         {/* Stops the body scrolling so the app's own ScrollViews own it —
             Expo's recommended reset for react-native-web. */}

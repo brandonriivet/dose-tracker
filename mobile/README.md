@@ -12,9 +12,9 @@ is the same idea taken one step further: react-native-web maps `<View>` and
 `<Text>` onto DOM elements and RN styles onto CSS, so a feature written
 once appears on all three.
 
-The plain-HTML web app at the repo root still exists and still works. This
-build is its replacement candidate, not its replacement — see "Replacing
-the web app" below.
+The web build is what GitHub Pages now serves. The original plain-HTML app
+still exists at `dose-tracker-plain/` as a fallback — see "Deploying the
+web build" below.
 
 ## Running it on your phone
 
@@ -191,24 +191,41 @@ handler deletes every cache that isn't the current name.
 the manifest parses with all four icons, and a reload with the network
 disabled renders the login screen with no console errors.
 
-### Replacing the plain-HTML web app
+### Deploying the web build
 
-The repo root still holds the original — plain HTML/JS, React from a CDN,
-deployed to GitHub Pages, and still what Pages serves.
+`.github/workflows/deploy-web.yml` builds this project and publishes it to
+GitHub Pages on every push to `main` that touches `mobile/`. Nothing built
+is committed — the export is uploaded as an artifact and Pages serves that.
+
+Locally:
 
 ```bash
-npm run bundle:web        # -> .expo-export-web/
+npm run bundle:web        # -> .expo-export-web/, served from the root
 ```
 
-Copy the contents of `.expo-export-web/` to wherever Pages serves from.
-With static output there is no fallback rule to configure.
+**The base URL is the thing to know.** A project repo is served from
+`https://<user>.github.io/<repo>/`, not the domain root, so every asset URL
+needs that prefix. The workflow sets `EXPO_WEB_BASE_URL`, which
+`app.config.js` turns into Expo's `experiments.baseUrl`; Expo rewrites the
+bundle and router links, and inlines it as `process.env.EXPO_BASE_URL`,
+which is how `pwa.web.js` finds `sw.js`.
 
-One thing still argues against switching: **bundle size**. The RN-for-web
-bundle is ~2.2 MB of JavaScript before compression, against a fraction of
-that for the plain files. The service worker means you pay it once rather
-than on every visit, but the first load is the first load. For a personal
-tracker on a good connection it doesn't matter; on a cold mobile connection
-it does.
+Three things had to become base-aware to make that work, and all three fail
+silently if they aren't:
+
+- `+html.js` prefixes the manifest and icon hrefs
+- `manifest.webmanifest` uses relative `start_url`, `scope` and icon paths,
+  so it resolves wherever it's served from
+- `sw.js` resolves everything against `new URL('./', self.location)` rather
+  than `/`, since its scope is the directory it's served from
+
+It is left empty everywhere else — local `npm run web`, the e2e harness and
+a custom-domain deploy all serve from the root, where a non-empty baseUrl
+would break every URL.
+
+Bundle size is the one real cost: ~543 KB gzipped against roughly 300 KB
+for the plain-files app. The service worker makes that a one-time download
+rather than a per-visit one, but the first load is still the first load.
 
 Firestore on native is also pinned to long polling (`src/firebase.js`). Its
 default streaming transport isn't fully supported by React Native's
