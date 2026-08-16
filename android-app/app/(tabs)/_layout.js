@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { ClockIcon, GearIcon, LeafIcon, SunIcon, VialIcon } from '../../src/components/icons';
-import { colors } from '../../src/theme';
+import { colors, radius } from '../../src/theme';
 
 // Same five tabs, same order as the web app's bottom NavBar.
 const TABS = [
@@ -20,14 +20,28 @@ export default function TabsLayout() {
       backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
-        // The Material 3 shape instead of the UIKit one: a rounded
-        // indicator behind the selected tab, which is what an Android user
-        // reads as "you are here". Tinted from the palette rather than the
-        // default 12%-alpha wash so it lands on the app's own amber.
-        tabBarVariant: 'material',
         tabBarActiveTintColor: colors.amber,
         tabBarInactiveTintColor: colors.paperFaint,
+        // The Material 3 "you are here" pill behind the selected tab, built
+        // by hand. Not `tabBarVariant: 'material'` — despite the name that
+        // is the tablet *sidebar* layout, and it throws outright unless
+        // tabBarPosition is left or right.
+        //
+        // The navigator paints activeBackgroundColor on the inner pressable
+        // with borderRadius 0, and applies tabBarItemStyle to the wrapper
+        // around it. So the rounding has to come from the wrapper clipping
+        // its child — hence overflow: 'hidden' here rather than a radius on
+        // the colour itself.
+        //
+        // Inset horizontally only. The bar is 49dp tall and already spends
+        // 15 of that on padding, so a vertical margin would come straight
+        // out of the ~34dp the icon and label share and clip the text.
         tabBarActiveBackgroundColor: colors.amberSoft,
+        tabBarItemStyle: {
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          marginHorizontal: 4,
+        },
         tabBarStyle: {
           backgroundColor: colors.inkSoft,
           borderTopColor: colors.inkLine,
