@@ -286,6 +286,7 @@ export function addPeptide(uid, data) {
     daysOfWeek: data.daysOfWeek && data.daysOfWeek.length ? data.daysOfWeek : ALL_DAYS,
     isBlend: !!data.isBlend,
     blendComponents: data.isBlend && Array.isArray(data.blendComponents) ? data.blendComponents : [],
+    priorUsedMg: data.priorUsedMg ? Number(data.priorUsedMg) : 0,
     reconstitutedDate: data.reconstitutedDate ? Timestamp.fromDate(new Date(data.reconstitutedDate)) : serverTimestamp(),
     status: 'active',
     notes: data.notes || '',
@@ -316,6 +317,8 @@ export function addSupplement(uid, data) {
     schedule: data.schedule || 'morning',
     daysOfWeek: data.daysOfWeek && data.daysOfWeek.length ? data.daysOfWeek : ALL_DAYS,
     reorderUrl: data.reorderUrl || '',
+    containerAmount: data.containerAmount ? Number(data.containerAmount) : null,
+    priorUsedAmount: data.priorUsedAmount ? Number(data.priorUsedAmount) : 0,
     active: true,
     notes: data.notes || '',
     createdAt: serverTimestamp(),
@@ -459,7 +462,21 @@ export function remainingMg(peptide, dosesForThisPeptide) {
     if (dose.unit === 'ml') return sum + dose.amount * conc;
     return sum;
   }, 0);
-  return Math.max(0, peptide.vialAmountMg - usedMg);
+  const priorUsed = peptide.priorUsedMg || 0;
+  return Math.max(0, peptide.vialAmountMg - priorUsed - usedMg);
+}
+
+// Supplement container tracking is opt-in: returns null if containerAmount
+// was never set (nothing to track), so items you don't care to track stay
+// exactly as simple as before.
+export function remainingSupplementAmount(supplement, logsForThisSupplement) {
+  if (supplement.containerAmount == null) return null;
+  const priorUsed = supplement.priorUsedAmount || 0;
+  const used = logsForThisSupplement.reduce((sum, log) => {
+    if (!log.taken || log.amount == null) return sum;
+    return sum + log.amount;
+  }, 0);
+  return Math.max(0, supplement.containerAmount - priorUsed - used);
 }
 
 // ---------- Blend math ----------

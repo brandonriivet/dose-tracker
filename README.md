@@ -53,6 +53,14 @@ the same component-based React you'd recognize from before.
   water — never the vial's total mg), and while logging a dose for a blend,
   a live line shows exactly how much of each component that amount
   delivers (e.g. "1.00mg BPC-157 · 1.00mg TB-500").
+- **Adding a vial that's already partway used** — an "Already used (mg)"
+  field when adding a peptide (also editable later from its Details) so the
+  remaining-amount bar starts accurate instead of assuming a full vial.
+- **Optional supplement inventory tracking** — set a container size (and
+  "already used" if it's not a fresh bottle) on any supplement to get the
+  same kind of remaining-amount bar peptides have, so you know when to
+  reorder. Entirely opt-in — supplements without a container size set look
+  exactly as before.
 - **Weight tab** — a 30-day line chart of your logged weight, plus the
   existing recent-entries list.
 - **History** — merged timeline, with per-day and "export all" CSV

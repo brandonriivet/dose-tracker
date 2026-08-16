@@ -36,6 +36,7 @@ import {
   blendDoseBreakdown,
   componentConcentration,
   componentMcgPerUnit,
+  remainingSupplementAmount,
   wipeAllData,
   isScheduledOn,
   parseDateKey,
@@ -930,6 +931,8 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
     return padded;
   });
   const [blendSavedFlash, setBlendSavedFlash] = useState(false);
+  const [editPriorUsed, setEditPriorUsed] = useState(String(p.priorUsedMg || 0));
+  const [priorUsedSavedFlash, setPriorUsedSavedFlash] = useState(false);
 
   const left = remainingMg(p, doses.filter((d) => d.peptideId === p.id));
   const pct = p.vialAmountMg ? left / p.vialAmountMg : 0;
@@ -939,6 +942,12 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
     await updatePeptide(uid, p.id, { schedule: editSchedule, daysOfWeek: editDays });
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1200);
+  }
+
+  async function savePriorUsed() {
+    await updatePeptide(uid, p.id, { priorUsedMg: Number(editPriorUsed) || 0 });
+    setPriorUsedSavedFlash(true);
+    setTimeout(() => setPriorUsedSavedFlash(false), 1200);
   }
 
   async function saveBlend() {
@@ -1016,6 +1025,18 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
                 `)}
               </div>
             `}
+          </div>
+
+          <div className="pt-3">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Already used before tracking</p>
+            <div className="flex gap-2">
+              <input type="number" step="any" inputMode="decimal" value=${editPriorUsed}
+                onChange=${(e) => setEditPriorUsed(e.target.value)} placeholder="0" className="input font-mono flex-1" />
+              <${Button} className="shrink-0" onClick=${savePriorUsed}>
+                ${priorUsedSavedFlash ? 'Saved ✓' : 'Save'}
+              <//>
+            </div>
+            <p className="text-xs text-paper-faint mt-1.5">Adjust this if your remaining-amount estimate ever drifts.</p>
           </div>
 
           <div className="flex gap-2 pt-3">
@@ -1116,6 +1137,7 @@ function AddPeptideModal({ open, onClose }) {
   const [daysOfWeek, setDaysOfWeek] = useState(ALL_DAYS);
   const [isBlend, setIsBlend] = useState(false);
   const [blendComponents, setBlendComponents] = useState(blankBlendComponents());
+  const [priorUsedMg, setPriorUsedMg] = useState('');
   const [reconstitutedDate, setReconstitutedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1129,7 +1151,7 @@ function AddPeptideModal({ open, onClose }) {
       const filteredBlend = blendComponents.filter((c) => c.name.trim() && c.mg !== '');
       await addPeptide(user.uid, {
         name, source, reorderUrl, vialAmountMg, bacWaterMl, unitsPerMl, logUnit, schedule, daysOfWeek,
-        isBlend, blendComponents: filteredBlend, reconstitutedDate, notes,
+        isBlend, blendComponents: filteredBlend, priorUsedMg, reconstitutedDate, notes,
       });
       reset();
       onClose();
@@ -1140,7 +1162,7 @@ function AddPeptideModal({ open, onClose }) {
 
   function reset() {
     setName(''); setSource(''); setReorderUrl(''); setVialAmountMg(''); setBacWaterMl(''); setNotes('');
-    setIsBlend(false); setBlendComponents(blankBlendComponents());
+    setIsBlend(false); setBlendComponents(blankBlendComponents()); setPriorUsedMg('');
   }
 
   return html`
@@ -1173,6 +1195,11 @@ function AddPeptideModal({ open, onClose }) {
 
         <${Field} label="Vial composition">
           <${BlendEditor} isBlend=${isBlend} setIsBlend=${setIsBlend} components=${blendComponents} setComponents=${setBlendComponents} />
+        <//>
+
+        <${Field} label="Already used (mg) — if this vial isn't fresh">
+          <input type="number" step="any" inputMode="decimal" value=${priorUsedMg}
+            onChange=${(e) => setPriorUsedMg(e.target.value)} placeholder="0" className="input font-mono" />
         <//>
 
         <div className="flex gap-3">
@@ -1219,15 +1246,31 @@ function AddPeptideModal({ open, onClose }) {
 
 /* ===================== Supplements screen (inventory) ===================== */
 
-function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
+function SupplementRow({ supplement: s, logs, uid, expanded, onToggleExpand }) {
   const [editSchedule, setEditSchedule] = useState(s.schedule || 'morning');
   const [editDays, setEditDays] = useState(s.daysOfWeek && s.daysOfWeek.length ? s.daysOfWeek : ALL_DAYS);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editContainerAmount, setEditContainerAmount] = useState(s.containerAmount != null ? String(s.containerAmount) : '');
+  const [editPriorUsed, setEditPriorUsed] = useState(String(s.priorUsedAmount || 0));
+  const [containerSavedFlash, setContainerSavedFlash] = useState(false);
+
+  const remaining = remainingSupplementAmount(s, (logs || []).filter((l) => l.supplementId === s.id));
+  const pct = remaining != null && s.containerAmount ? remaining / s.containerAmount : null;
+  const low = pct != null && pct < 0.15;
 
   async function saveSchedule() {
     await updateSupplement(uid, s.id, { schedule: editSchedule, daysOfWeek: editDays });
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1200);
+  }
+
+  async function saveContainer() {
+    await updateSupplement(uid, s.id, {
+      containerAmount: editContainerAmount === '' ? null : Number(editContainerAmount),
+      priorUsedAmount: Number(editPriorUsed) || 0,
+    });
+    setContainerSavedFlash(true);
+    setTimeout(() => setContainerSavedFlash(false), 1200);
   }
 
   return html`
@@ -1261,6 +1304,20 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
         </div>
       </div>
 
+      ${remaining != null && html`
+        <div className="mt-2.5">
+          <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+            <div
+              className=${`h-full rounded-full ${low ? 'bg-coral' : 'bg-teal'}`}
+              style=${{ width: `${Math.max(2, pct * 100)}%` }}
+            />
+          </div>
+          <span className=${`text-xs font-mono ${low ? 'text-coral' : 'text-paper-dim'}`}>
+            ${remaining}${s.unit === 'capsule' ? ' capsules' : s.unit} left of ${s.containerAmount}${s.unit === 'capsule' ? ' capsules' : s.unit}
+          </span>
+        </div>
+      `}
+
       ${expanded && html`
         <div className="mt-3 pt-3 border-t border-ink-line">
           <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Edit schedule</p>
@@ -1276,6 +1333,26 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
           <${Button} variant="tealPrimary" className="w-full mt-2" onClick=${saveSchedule}>
             ${savedFlash ? 'Saved ✓' : 'Save schedule'}
           <//>
+
+          <div className="pt-3 mt-3 border-t border-ink-line">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Container tracking (optional)</p>
+            <div className="flex gap-2 mb-2">
+              <label className="flex-1">
+                <span className="block text-[11px] text-paper-faint mb-1">Container size</span>
+                <input type="number" step="any" inputMode="decimal" value=${editContainerAmount}
+                  onChange=${(e) => setEditContainerAmount(e.target.value)} placeholder="e.g. 120" className="input font-mono" />
+              </label>
+              <label className="flex-1">
+                <span className="block text-[11px] text-paper-faint mb-1">Already used</span>
+                <input type="number" step="any" inputMode="decimal" value=${editPriorUsed}
+                  onChange=${(e) => setEditPriorUsed(e.target.value)} placeholder="0" className="input font-mono" />
+              </label>
+            </div>
+            <${Button} variant="tealPrimary" className="w-full" onClick=${saveContainer}>
+              ${containerSavedFlash ? 'Saved ✓' : 'Save container info'}
+            <//>
+            <p className="text-xs text-paper-faint mt-1.5">Leave container size blank to stop tracking remaining amount for this one.</p>
+          </div>
         </div>
       `}
     <//>
@@ -1285,12 +1362,15 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
 export function SupplementsScreen() {
   const { user } = useAuth();
   const [supplements, setSupplements] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     if (!user) return;
-    return listenSupplements(user.uid, setSupplements);
+    const u1 = listenSupplements(user.uid, setSupplements);
+    const u2 = listenRecentSupplementLogs(user.uid, setLogs, 500);
+    return () => { u1(); u2(); };
   }, [user]);
 
   return html`
@@ -1308,6 +1388,7 @@ export function SupplementsScreen() {
         <${SupplementRow}
           key=${s.id}
           supplement=${s}
+          logs=${logs}
           uid=${user.uid}
           expanded=${expanded === s.id}
           onToggleExpand=${() => setExpanded(expanded === s.id ? null : s.id)}
@@ -1329,6 +1410,8 @@ function AddSupplementModal({ open, onClose }) {
   const [schedule, setSchedule] = useState('morning');
   const [daysOfWeek, setDaysOfWeek] = useState(ALL_DAYS);
   const [reorderUrl, setReorderUrl] = useState('');
+  const [containerAmount, setContainerAmount] = useState('');
+  const [priorUsedAmount, setPriorUsedAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -1336,8 +1419,8 @@ function AddSupplementModal({ open, onClose }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await addSupplement(user.uid, { name, dosage, unit, schedule, daysOfWeek, reorderUrl, notes });
-      setName(''); setDosage(''); setReorderUrl(''); setNotes('');
+      await addSupplement(user.uid, { name, dosage, unit, schedule, daysOfWeek, reorderUrl, containerAmount, priorUsedAmount, notes });
+      setName(''); setDosage(''); setReorderUrl(''); setNotes(''); setContainerAmount(''); setPriorUsedAmount('');
       onClose();
     } finally {
       setBusy(false);
@@ -1387,6 +1470,20 @@ function AddSupplementModal({ open, onClose }) {
           <span className="block text-xs text-paper-dim mb-1">Reorder link (optional)</span>
           <input type="url" value=${reorderUrl} onChange=${(e) => setReorderUrl(e.target.value)} placeholder="https://..." className="input" />
         </label>
+
+        <div className="flex gap-3">
+          <label className="block flex-1">
+            <span className="block text-xs text-paper-dim mb-1">Container size (optional)</span>
+            <input type="number" step="any" inputMode="decimal" value=${containerAmount}
+              onChange=${(e) => setContainerAmount(e.target.value)} placeholder=${`e.g. total ${unit}s in the bottle`} className="input font-mono" />
+          </label>
+          <label className="block flex-1">
+            <span className="block text-xs text-paper-dim mb-1">Already used</span>
+            <input type="number" step="any" inputMode="decimal" value=${priorUsedAmount}
+              onChange=${(e) => setPriorUsedAmount(e.target.value)} placeholder="0" className="input font-mono" />
+          </label>
+        </div>
+        <p className="text-xs text-paper-faint -mt-1.5">Leave container size blank if you don't want to track remaining amount for this one.</p>
 
         <label className="block">
           <span className="block text-xs text-paper-dim mb-1">Notes (optional)</span>
