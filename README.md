@@ -28,6 +28,14 @@ the same component-based React you'd recognize from before.
 - **Log** — a date + a small daily quote up top, then Morning / Evening
   tabs, then Supplements / Peptides / Daily Weight sub-tabs. Toggle an
   item, type an amount, hit **Save**. **Clear all** resets before you save.
+- **Dose Calculator** — a standalone tab: pick a syringe size (0.3/0.5/1.0mL
+  — all standard U-100, so the size only sets the max units the barrel
+  holds, not the math), vial mg, BAC water, and desired dose (presets or
+  your own numbers), and it shows exactly how many units to draw, plus a
+  ruler-style visual with a filled bar to that point.
+- **Bottom nav** is Log / Peptides / Supplements / Calculator, with a **☰
+  menu** button replacing the old direct Settings tab — tap it for History,
+  Settings, or a one-tap **Log out** without going into Settings first.
 - **Navigate any day** — ‹ › arrows step one day at a time, or tap the
   date (or the 📅 icon) for a full month calendar to jump anywhere. Past
   days are fully editable — same toggle/amount/Save screen you use daily.

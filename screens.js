@@ -37,6 +37,7 @@ import {
   componentConcentration,
   componentMcgPerUnit,
   remainingSupplementAmount,
+  calculatorUnits,
   wipeAllData,
   isScheduledOn,
   parseDateKey,
@@ -198,16 +199,75 @@ function GearIcon({ active }) {
     </svg>
   `;
 }
+function RulerIcon({ active }) {
+  return html`
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="2.5" y="8" width="19" height="8" rx="1.2" transform="rotate(-8 12 12)" stroke="currentColor" strokeWidth="1.7" fill=${active ? 'currentColor' : 'none'} fillOpacity=${active ? 0.15 : 0} />
+      <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M6.2 9.3l0.7 2.2M9.4 8.7l0.7 2.2M12.6 8.1l0.7 2.2M15.8 7.5l0.7 2.2" />
+      </g>
+    </svg>
+  `;
+}
+function MenuIcon({ active }) {
+  return html`
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </g>
+    </svg>
+  `;
+}
 
 const TABS = [
   { id: 'log', label: 'Log', icon: SunIcon },
   { id: 'peptides', label: 'Peptides', icon: VialIcon },
   { id: 'supplements', label: 'Supplements', icon: LeafIcon },
-  { id: 'history', label: 'History', icon: ClockIcon },
-  { id: 'settings', label: 'Settings', icon: GearIcon },
+  { id: 'calculator', label: 'Calculator', icon: RulerIcon },
 ];
 
-export function NavBar({ active, onChange }) {
+function MenuModal({ open, onClose, onSelect, onLogout }) {
+  return html`
+    <${Modal} open=${open} onClose=${onClose} title="Menu">
+      <div className="space-y-2">
+        <button
+          onClick=${() => onSelect('history')}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-ink-soft border border-ink-line"
+        >
+          <${ClockIcon} />
+          <span className="text-sm font-medium">History</span>
+        </button>
+        <button
+          onClick=${() => onSelect('settings')}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-ink-soft border border-ink-line"
+        >
+          <${GearIcon} />
+          <span className="text-sm font-medium">Settings</span>
+        </button>
+        <button
+          onClick=${onLogout}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-coral-soft border border-coral/30 mt-3"
+        >
+          <span className="text-sm font-medium text-coral">Log out</span>
+        </button>
+      </div>
+    <//>
+  `;
+}
+
+export function NavBar({ active, onChange, onLogout }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuActive = active === 'history' || active === 'settings';
+
+  function handleSelect(dest) {
+    onChange(dest);
+    setShowMenu(false);
+  }
+  function handleLogout() {
+    setShowMenu(false);
+    onLogout();
+  }
+
   return html`
     <nav className="fixed bottom-0 left-0 right-0 bg-ink-soft/95 backdrop-blur border-t border-ink-line safe-bottom z-40">
       <div className="max-w-md mx-auto flex">
@@ -224,8 +284,16 @@ export function NavBar({ active, onChange }) {
             </button>
           `;
         })}
+        <button
+          onClick=${() => setShowMenu(true)}
+          className=${`flex-1 flex flex-col items-center gap-1 py-2.5 ${menuActive ? 'text-amber' : 'text-paper-faint'}`}
+        >
+          <${MenuIcon} active=${menuActive} />
+          <span className="text-[11px] font-medium">Menu</span>
+        </button>
       </div>
     </nav>
+    <${MenuModal} open=${showMenu} onClose=${() => setShowMenu(false)} onSelect=${handleSelect} onLogout=${handleLogout} />
   `;
 }
 
@@ -786,6 +854,208 @@ function WeightChart({ entries }) {
         <span>${formatFriendlyDate(first.dateKey)}</span>
         <span>${formatFriendlyDate(last.dateKey)}</span>
       </div>
+    </div>
+  `;
+}
+
+/* ===================== Calculator screen ===================== */
+
+const SYRINGE_SIZES = [
+  { id: '0.3', label: '0.3 mL (30 units)', maxUnits: 30 },
+  { id: '0.5', label: '0.5 mL (50 units)', maxUnits: 50 },
+  { id: '1.0', label: '1.0 mL (100 units)', maxUnits: 100 },
+];
+const VIAL_MG_PRESETS = [5, 10, 15];
+const BAC_ML_PRESETS = [1, 2, 3, 5];
+const DOSE_PRESETS = [
+  { v: 50, u: 'mcg' }, { v: 100, u: 'mcg' }, { v: 250, u: 'mcg' }, { v: 500, u: 'mcg' },
+  { v: 1, u: 'mg' }, { v: 2.5, u: 'mg' }, { v: 5, u: 'mg' }, { v: 10, u: 'mg' },
+];
+
+function CalculatorRuler({ maxUnits, value }) {
+  const width = 600;
+  const height = 70;
+  const padX = 10;
+  const usableWidth = width - padX * 2;
+  const clamped = Math.max(0, Math.min(value ?? 0, maxUnits));
+  const xFor = (u) => padX + (u / maxUnits) * usableWidth;
+  const fillWidth = xFor(clamped) - padX;
+
+  const ticks = [];
+  for (let u = 0; u <= maxUnits; u++) ticks.push(u);
+
+  return html`
+    <svg viewBox=${`0 0 ${width} ${height}`} className="w-full h-16" preserveAspectRatio="none">
+      <rect x=${padX} y="10" width=${fillWidth} height="24" fill="#F2760E" opacity="0.35" />
+      <line x1=${padX} y1="34" x2=${width - padX} y2="34" stroke="#5B6673" strokeWidth="1.5" />
+      ${ticks.map((u) => {
+        const isMajor = u % 5 === 0;
+        const x = xFor(u);
+        return html`
+          <g key=${u}>
+            <line x1=${x} y1=${isMajor ? 18 : 26} x2=${x} y2="34" stroke=${isMajor ? '#ECEFF3' : '#5B6673'} strokeWidth=${isMajor ? 1.5 : 1} />
+            ${isMajor && html`<text x=${x} y="50" fontSize="11" textAnchor="middle" fill="#8B96A3" fontFamily="monospace">${u}</text>`}
+          </g>
+        `;
+      })}
+      <line x1=${xFor(clamped)} y1="6" x2=${xFor(clamped)} y2="38" stroke="#F2760E" strokeWidth="2.5" />
+    </svg>
+  `;
+}
+
+function PresetChooser({ presets, value, onChange, otherValue, onOtherChange, formatLabel, placeholder }) {
+  return html`
+    <div>
+      <div className="grid grid-cols-4 gap-2">
+        ${presets.map((p) => html`
+          <button
+            key=${p}
+            type="button"
+            onClick=${() => onChange(p)}
+            className=${`py-2 rounded-lg text-xs font-medium border ${value === p ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+          >
+            ${formatLabel(p)}
+          </button>
+        `)}
+        <button
+          type="button"
+          onClick=${() => onChange('other')}
+          className=${`py-2 rounded-lg text-xs font-medium border ${value === 'other' ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+        >
+          Other
+        </button>
+      </div>
+      ${value === 'other' && html`
+        <input
+          type="number" step="any" inputMode="decimal"
+          value=${otherValue}
+          onChange=${(e) => onOtherChange(e.target.value)}
+          placeholder=${placeholder}
+          className="input font-mono mt-2"
+        />
+      `}
+    </div>
+  `;
+}
+
+export function CalculatorScreen() {
+  const [syringeId, setSyringeId] = useState('1.0');
+  const [vialMgChoice, setVialMgChoice] = useState(10);
+  const [vialMgOther, setVialMgOther] = useState('');
+  const [bacMlChoice, setBacMlChoice] = useState(2);
+  const [bacMlOther, setBacMlOther] = useState('');
+  const [doseChoice, setDoseChoice] = useState(4); // index into DOSE_PRESETS (4 = 1mg)
+  const [doseOtherValue, setDoseOtherValue] = useState('');
+  const [doseOtherUnit, setDoseOtherUnit] = useState('mg');
+
+  const syringe = SYRINGE_SIZES.find((sz) => sz.id === syringeId);
+  const vialMg = vialMgChoice === 'other' ? Number(vialMgOther) : vialMgChoice;
+  const bacMl = bacMlChoice === 'other' ? Number(bacMlOther) : bacMlChoice;
+  const dose = doseChoice === 'other' ? { v: Number(doseOtherValue), u: doseOtherUnit } : DOSE_PRESETS[doseChoice];
+  const doseMg = dose && dose.v ? (dose.u === 'mcg' ? dose.v / 1000 : dose.v) : 0;
+
+  const units = calculatorUnits(vialMg, bacMl, doseMg);
+  const exceeds = units != null && units > syringe.maxUnits;
+
+  return html`
+    <div className="px-4 pt-4 pb-28 max-w-md mx-auto safe-top">
+      <h1 className="font-display text-2xl font-semibold mb-1">Dose Calculator</h1>
+      <p className="text-paper-faint text-sm mb-6">Figure out how many units to draw for a target dose.</p>
+
+      <${Section} title="Syringe size">
+        <div className="grid grid-cols-1 gap-2">
+          ${SYRINGE_SIZES.map((sz) => html`
+            <button
+              key=${sz.id}
+              type="button"
+              onClick=${() => setSyringeId(sz.id)}
+              className=${`py-2.5 rounded-lg text-sm font-medium border text-left px-3 ${syringeId === sz.id ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+            >
+              ${sz.label}
+            </button>
+          `)}
+        </div>
+      <//>
+
+      <${Section} title="Peptide vial quantity (mg)">
+        <${PresetChooser}
+          presets=${VIAL_MG_PRESETS}
+          value=${vialMgChoice}
+          onChange=${setVialMgChoice}
+          otherValue=${vialMgOther}
+          onOtherChange=${setVialMgOther}
+          formatLabel=${(p) => `${p}mg`}
+          placeholder="Enter vial quantity (mg)"
+        />
+      <//>
+
+      <${Section} title="Bacteriostatic water (mL)">
+        <${PresetChooser}
+          presets=${BAC_ML_PRESETS}
+          value=${bacMlChoice}
+          onChange=${setBacMlChoice}
+          otherValue=${bacMlOther}
+          onOtherChange=${setBacMlOther}
+          formatLabel=${(p) => `${p}mL`}
+          placeholder="Enter BAC water amount (mL)"
+        />
+      <//>
+
+      <${Section} title="Desired dose">
+        <div className="grid grid-cols-4 gap-2">
+          ${DOSE_PRESETS.map((p, i) => html`
+            <button
+              key=${i}
+              type="button"
+              onClick=${() => setDoseChoice(i)}
+              className=${`py-2 rounded-lg text-xs font-medium border ${doseChoice === i ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+            >
+              ${p.v}${p.u}
+            </button>
+          `)}
+          <button
+            type="button"
+            onClick=${() => setDoseChoice('other')}
+            className=${`py-2 rounded-lg text-xs font-medium border ${doseChoice === 'other' ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+          >
+            Other
+          </button>
+        </div>
+        ${doseChoice === 'other' && html`
+          <div className="flex gap-2 mt-2">
+            <input
+              type="number" step="any" inputMode="decimal"
+              value=${doseOtherValue}
+              onChange=${(e) => setDoseOtherValue(e.target.value)}
+              placeholder="Amount"
+              className="input font-mono flex-1"
+            />
+            <div className="flex bg-ink-soft border border-ink-line rounded-lg p-1">
+              ${['mg', 'mcg'].map((u) => html`
+                <button key=${u} type="button" onClick=${() => setDoseOtherUnit(u)}
+                  className=${`px-3 py-1.5 rounded-md text-sm ${doseOtherUnit === u ? 'bg-amber text-ink font-semibold' : 'text-paper-dim'}`}>
+                  ${u}
+                </button>
+              `)}
+            </div>
+          </div>
+        `}
+      <//>
+
+      ${units != null && html`
+        <${Card} className="mt-2">
+          <p className="text-sm text-paper-dim mb-1">
+            For a dose of ${dose.v}${dose.u}, pull the syringe to
+          </p>
+          <p className="font-display text-3xl font-semibold text-amber-bright mb-4">${units.toFixed(1)} units</p>
+          ${exceeds && html`
+            <p className="text-xs text-coral mb-3">
+              This exceeds your selected syringe's capacity (${syringe.maxUnits} units) — consider a larger syringe or smaller dose.
+            </p>
+          `}
+          <${CalculatorRuler} maxUnits=${syringe.maxUnits} value=${Math.min(units, syringe.maxUnits)} />
+        <//>
+      `}
     </div>
   `;
 }
@@ -1516,16 +1786,47 @@ function ItemDetailModal({ open, onClose, item, kind }) {
   useEffect(() => {
     if (!user || !item || !open) return;
     const listener = kind === 'peptide' ? listenPeptideHistory : listenSupplementHistory;
-    return listener(user.uid, item.id, setHistory, 30);
+    // A generous limit here (not just "last 7 days") so the remaining-amount
+    // math below has this item's full dose history to work from, not just
+    // enough for the "last 7 days taken" list further down.
+    return listener(user.uid, item.id, setHistory, 500);
   }, [user, item, open, kind]);
 
   if (!open || !item) return null;
 
   const recent = history.filter((h) => h.taken).slice(0, HISTORY_DAYS);
 
+  const remainingP = kind === 'peptide' ? remainingMg(item, history) : null;
+  const pctP = kind === 'peptide' && item.vialAmountMg ? remainingP / item.vialAmountMg : 0;
+  const lowP = pctP < 0.15;
+
+  const remainingS = kind === 'supplement' ? remainingSupplementAmount(item, history) : null;
+  const pctS = kind === 'supplement' && item.containerAmount ? remainingS / item.containerAmount : 0;
+  const lowS = pctS < 0.15;
+
   return html`
     <${Modal} open=${open} onClose=${onClose} title=${item.name}>
       <div className="space-y-4">
+        ${kind === 'peptide' && html`
+          <div>
+            <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+              <div className=${`h-full rounded-full ${lowP ? 'bg-coral' : 'bg-amber'}`} style=${{ width: `${Math.max(2, pctP * 100)}%` }} />
+            </div>
+            <p className=${`text-sm font-mono ${lowP ? 'text-coral' : 'text-paper-dim'}`}>
+              ${remainingP.toFixed(1)} mg left of ${item.vialAmountMg} mg
+            </p>
+          </div>
+        `}
+        ${kind === 'supplement' && remainingS != null && html`
+          <div>
+            <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+              <div className=${`h-full rounded-full ${lowS ? 'bg-coral' : 'bg-teal'}`} style=${{ width: `${Math.max(2, pctS * 100)}%` }} />
+            </div>
+            <p className=${`text-sm font-mono ${lowS ? 'text-coral' : 'text-paper-dim'}`}>
+              ${remainingS}${item.unit === 'capsule' ? ' capsules' : item.unit} left of ${item.containerAmount}${item.unit === 'capsule' ? ' capsules' : item.unit}
+            </p>
+          </div>
+        `}
         <div className="space-y-2 text-sm">
           ${kind === 'peptide' ? html`
             <${DetailRow} label="Source" value=${item.source || '—'} />

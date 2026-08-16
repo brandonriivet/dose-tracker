@@ -74,7 +74,7 @@ export function Modal({ open, onClose, title, children }) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-semibold text-lg">${title}</h2>
           <button onClick=${onClose} className="text-paper-dim text-2xl leading-none px-2">
-            &times;
+            ×
           </button>
         </div>
         ${children}

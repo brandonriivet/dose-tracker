@@ -479,6 +479,17 @@ export function remainingSupplementAmount(supplement, logsForThisSupplement) {
   return Math.max(0, supplement.containerAmount - priorUsed - used);
 }
 
+// ---------- Standalone dose calculator ----------
+// All syringe sizes here (0.3/0.5/1.0mL) use the same U-100 convention
+// (100 units = 1mL) - the syringe size only sets the max units the barrel
+// can physically hold, not the conversion math itself.
+export function calculatorUnits(vialMg, bacWaterMl, doseMg) {
+  if (!vialMg || !bacWaterMl || !doseMg) return null;
+  const concentration = vialMg / bacWaterMl; // mg/mL
+  const volumeMl = doseMg / concentration;
+  return volumeMl * 100;
+}
+
 // ---------- Blend math ----------
 // A blend vial has multiple peptides reconstituted together in the SAME
 // bacWaterMl. Each component's own concentration is its own mg divided by
