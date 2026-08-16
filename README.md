@@ -48,7 +48,11 @@ the same component-based React you'd recognize from before.
 - **Blend vials** — mark a peptide vial as a blend (multiple peptides
   reconstituted together, up to 4), each with its own name and mg amount.
   Shows a "Blend" badge on the card and the breakdown in the detail view;
-  editable any time from the vial's Details.
+  editable any time from the vial's Details. Each component's own
+  concentration and mcg/unit are shown correctly (its own mg ÷ the vial's
+  water — never the vial's total mg), and while logging a dose for a blend,
+  a live line shows exactly how much of each component that amount
+  delivers (e.g. "1.00mg BPC-157 · 1.00mg TB-500").
 - **Weight tab** — a 30-day line chart of your logged weight, plus the
   existing recent-entries list.
 - **History** — merged timeline, with per-day and "export all" CSV

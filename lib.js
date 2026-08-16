@@ -462,6 +462,54 @@ export function remainingMg(peptide, dosesForThisPeptide) {
   return Math.max(0, peptide.vialAmountMg - usedMg);
 }
 
+// ---------- Blend math ----------
+// A blend vial has multiple peptides reconstituted together in the SAME
+// bacWaterMl. Each component's own concentration is its own mg divided by
+// the vial's water — never the vial's total mg. (E.g. 5mg + 5mg in 1mL
+// means each one is 5mg/mL, not 10mg/mL - the 10mg/mL figure is only the
+// combined total, useful for vial-depletion tracking, not per-component
+// dosing.)
+
+export function componentConcentration(peptide, componentMg) {
+  if (!componentMg || !peptide?.bacWaterMl) return 0;
+  return componentMg / peptide.bacWaterMl;
+}
+
+export function componentMcgPerUnit(peptide, componentMg) {
+  const conc = componentConcentration(peptide, componentMg);
+  const perMl = peptide?.unitsPerMl || 100;
+  return (conc * 1000) / perMl;
+}
+
+// Converts a logged/typed dose amount (in whatever unit was used - mg, mcg,
+// units, or mL) into the actual volume drawn, using the vial's TOTAL
+// concentration (since the unit you draw with only measures volume).
+export function doseVolumeMl(peptide, amount, unit) {
+  const n = Number(amount);
+  if (!n) return 0;
+  const totalConc = concentration(peptide);
+  if (unit === 'ml') return n;
+  if (unit === 'units') return n / (peptide?.unitsPerMl || 100);
+  if (unit === 'mg') return totalConc ? n / totalConc : 0;
+  if (unit === 'mcg') return totalConc ? n / 1000 / totalConc : 0;
+  return 0;
+}
+
+// Given a dose amount+unit for a blend peptide, returns how much of EACH
+// component that draw actually delivers - the thing you actually want to
+// know before pushing the plunger. Returns null for non-blend peptides.
+export function blendDoseBreakdown(peptide, amount, unit) {
+  if (!peptide?.isBlend || !Array.isArray(peptide.blendComponents) || peptide.blendComponents.length === 0) {
+    return null;
+  }
+  const volumeMl = doseVolumeMl(peptide, amount, unit);
+  if (!volumeMl) return null;
+  return peptide.blendComponents.map((c) => ({
+    name: c.name,
+    mg: componentConcentration(peptide, Number(c.mg)) * volumeMl,
+  }));
+}
+
 // ---------- Full wipe (Settings "danger zone") ----------
 // Deletes every document across all 5 collections for this account.
 // Batches are chunked to 450 to stay safely under Firestore's 500-op limit.

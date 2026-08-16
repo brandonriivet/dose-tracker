@@ -33,6 +33,9 @@ import {
   concentration,
   mcgPerUnit,
   remainingMg,
+  blendDoseBreakdown,
+  componentConcentration,
+  componentMcgPerUnit,
   wipeAllData,
   isScheduledOn,
   parseDateKey,
@@ -567,6 +570,7 @@ function PeptideLogList({ period, dateKey: dateKeyProp, readOnly }) {
     <div>
       ${scoped.map((p) => {
         const row = draft[p.id] || { taken: false, amount: '' };
+        const breakdown = row.taken && row.amount !== '' ? blendDoseBreakdown(p, row.amount, p.logUnit || 'mcg') : null;
         return html`
           <${Card} key=${p.id} className="mb-2.5">
             <div className="flex items-center gap-3">
@@ -583,6 +587,11 @@ function PeptideLogList({ period, dateKey: dateKeyProp, readOnly }) {
               />
               <span className="text-xs text-paper-dim w-12 shrink-0">${peptideUnitLabel(p.logUnit)}</span>
             </div>
+            ${breakdown && html`
+              <p className="text-xs text-teal-bright font-mono mt-2 pl-1">
+                ${breakdown.map((c) => `${c.mg.toFixed(2)}mg ${c.name}`).join(' · ')}
+              </p>
+            `}
           <//>
         `;
       })}
@@ -998,6 +1007,15 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
             <${Button} className="w-full mt-2" onClick=${saveBlend}>
               ${blendSavedFlash ? 'Saved ✓' : 'Save blend'}
             <//>
+            ${p.isBlend && Array.isArray(p.blendComponents) && p.blendComponents.length > 0 && html`
+              <div className="mt-3 pt-3 border-t border-ink-line space-y-1.5">
+                ${p.blendComponents.map((c, i) => html`
+                  <p key=${i} className="text-xs text-paper-dim font-mono">
+                    ${c.name}: ${componentConcentration(p, Number(c.mg)).toFixed(2)}mg/mL · ${componentMcgPerUnit(p, Number(c.mg)).toFixed(1)}mcg/unit
+                  </p>
+                `)}
+              </div>
+            `}
           </div>
 
           <div className="flex gap-2 pt-3">
@@ -1421,10 +1439,17 @@ function ItemDetailModal({ open, onClose, item, kind }) {
             <${DetailRow} label="Schedule" value=${scheduleFull(item.schedule)} />
             ${item.isBlend && Array.isArray(item.blendComponents) && item.blendComponents.length > 0 && html`
               <div className="pt-1">
-                <p className="text-xs text-paper-dim uppercase tracking-wide mb-1">Blend</p>
-                ${item.blendComponents.map((c, i) => html`
-                  <${DetailRow} key=${i} label=${c.name} value=${`${c.mg} mg`} />
-                `)}
+                <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Blend — per component</p>
+                <div className="space-y-1.5">
+                  ${item.blendComponents.map((c, i) => html`
+                    <div key=${i}>
+                      <p className="text-sm font-medium">${c.name}</p>
+                      <p className="text-xs text-paper-dim font-mono">
+                        ${c.mg}mg · ${componentConcentration(item, Number(c.mg)).toFixed(2)}mg/mL · ${componentMcgPerUnit(item, Number(c.mg)).toFixed(1)}mcg/unit
+                      </p>
+                    </div>
+                  `)}
+                </div>
               </div>
             `}
             ${item.notes && html`<${DetailRow} label="Notes" value=${item.notes} />`}
