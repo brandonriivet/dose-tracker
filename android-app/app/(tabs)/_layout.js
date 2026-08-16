@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { ClockIcon, GearIcon, LeafIcon, SunIcon, VialIcon } from '../../src/components/icons';
-import { colors } from '../../src/theme';
+import { colors, radius } from '../../src/theme';
 
 // Same five tabs, same order as the web app's bottom NavBar.
 const TABS = [
@@ -24,13 +24,14 @@ export default function TabsLayout() {
         // indicator behind the selected tab, which is what an Android user
         // reads as "you are here". Tinted from the palette rather than the
         // default 12%-alpha wash so it lands on the app's own amber.
-        tabBarVariant: 'material',
         tabBarActiveTintColor: colors.amber,
         tabBarInactiveTintColor: colors.paperFaint,
         tabBarActiveBackgroundColor: colors.amberSoft,
         tabBarStyle: {
-          backgroundColor: colors.inkSoft,
-          borderTopColor: colors.inkLine,
+          tabBarItemStyle: {
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          marginHorizontal: 4,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         sceneStyle: { backgroundColor: colors.ink },
