@@ -39,8 +39,11 @@ eas build --platform ios --profile preview
 Developer account — that's Apple's rule for putting an app on a device for
 more than 7 days, not an Expo one.
 
-The bundle identifier is `com.riivet.dose` (`app.json` → `ios`). Change it
-if you'd rather use a different Apple team's namespace.
+The bundle identifier is `com.nbv.dose` (`app.json` → `ios`), the same
+reverse-DNS name the Android build uses for its application ID. That's fine
+and normal — the two stores don't share a namespace, and nothing in either
+app is keyed on them matching or differing. Change it if you'd rather use a
+different Apple team's namespace.
 
 ## Layout
 
