@@ -17,6 +17,7 @@ import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, getReactNativePersistence, initializeAuth } from 'firebase/auth';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebase-config';
+import { connectEmulators } from './firebase.emulator';
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
@@ -38,3 +39,6 @@ function makeDb() {
 
 export const auth = makeAuth();
 export const db = makeDb();
+
+// No-op unless the app was built with EXPO_PUBLIC_FIREBASE_EMULATOR=1.
+connectEmulators(auth, db);

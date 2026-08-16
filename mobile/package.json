@@ -9,7 +9,9 @@
     "bundle:ios": "expo export --platform ios --output-dir .expo-export-ios",
     "bundle:android": "expo export --platform android --output-dir .expo-export",
     "web": "expo start --web",
-    "bundle:web": "expo export --platform web --output-dir .expo-export-web"
+    "bundle:web": "expo export --platform web --output-dir .expo-export-web",
+    "test:e2e": "cp ../firestore.rules e2e/.firestore.rules && EXPO_PUBLIC_FIREBASE_EMULATOR=1 npm run bundle:e2e && firebase emulators:exec --config e2e/firebase.json --project demo-dose \"node e2e/flow.mjs\"",
+    "bundle:e2e": "expo export --platform web --output-dir .expo-export-e2e --clear"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.10",
@@ -28,7 +30,7 @@
     "expo-system-ui": "~57.0.2",
     "firebase": "^12.17.1",
     "react": "19.2.3",
-    "react-dom": "^19.2.3",
+    "react-dom": "19.2.3",
     "react-native": "0.86.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -39,9 +41,8 @@
   "devDependencies": {
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.1",
+    "firebase-tools": "^15.27.0",
+    "playwright": "^1.62.1",
     "typescript": "~5.9"
-  },
-  "overrides": {
-    "react-dom": "19.2.3"
   }
 }
