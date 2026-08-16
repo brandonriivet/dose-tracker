@@ -4,14 +4,17 @@ A private tracker for reconstituted peptide vials and daily supplements.
 It comes in two flavors, both backed by the same Firebase project and the
 same Firestore data, on the same account:
 
-- **[`mobile/`](mobile/README.md) — a real iOS and Android app** (Expo /
-  React Native). One codebase, both platforms, each behaving like itself:
-  the inline date picker and press-dim on iOS, the Material dialog, ripples
-  and adaptive icon on Android. Runs via Expo Go, or as a proper home-screen
-  app via an EAS build — sideloadable as an APK on Android, needing a paid
-  Apple account on iOS.
+- **[`mobile/`](mobile/README.md) — a real iOS, Android and web app** (Expo
+  / React Native, with react-native-web for the browser). One codebase,
+  three targets, each behaving like itself: the inline date picker and
+  press-dim on iOS, the Material dialog, ripples and adaptive icon on
+  Android, a plain download for CSV export on the web. Runs via Expo Go, or
+  as a proper home-screen app via an EAS build — sideloadable as an APK on
+  Android, needing a paid Apple account on iOS.
 - **the repo root — the web app**, documented below. Plain files on GitHub
-  Pages.
+  Pages. This is still what Pages serves; `mobile/`'s web build is a
+  replacement candidate, weighed up in
+  [mobile/README.md](mobile/README.md#replacing-the-plain-html-web-app).
 
 They stay in sync because they read and write the exact same documents —
 log a dose on your phone and it's on the web version, and vice versa. Use
@@ -20,10 +23,13 @@ whichever you like; neither replaces the other.
 The phone apps used to live in separate `ios-app/` and `android-app/`
 directories. They were 91% identical, so every change had to be made twice;
 they are now one project under `mobile/`, with the genuinely
-platform-specific parts split into `.ios.js` / `.android.js` files.
+platform-specific parts split into `.ios.js` / `.android.js` / `.web.js`
+files. Adding the web target to that project is what makes a feature
+written once show up in all three places — the thing three separate
+codebases could never do.
 
-The rest of this file is about the web version. For the phone app, see
-**[mobile/README.md](mobile/README.md)**.
+The rest of this file is about the plain-files web version. For the
+RN-based app, see **[mobile/README.md](mobile/README.md)**.
 
 ## The web version (plain-files edition)
 

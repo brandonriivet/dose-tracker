@@ -1,19 +1,9 @@
 import { Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { toCsv } from './csv.shared';
 
-export function toCsv(rows) {
-  return rows
-    .map((row) =>
-      row
-        .map((cell) => {
-          const s = String(cell ?? '');
-          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        })
-        .join(',')
-    )
-    .join('\n');
-}
+export { toCsv };
 
 // The web app's downloadCsv() triggered a browser download. On a phone the
 // equivalent is: write the file into the app's own cache directory, then
