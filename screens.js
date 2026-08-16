@@ -33,6 +33,11 @@ import {
   concentration,
   mcgPerUnit,
   remainingMg,
+  blendDoseBreakdown,
+  componentConcentration,
+  componentMcgPerUnit,
+  remainingSupplementAmount,
+  calculatorUnits,
   wipeAllData,
   isScheduledOn,
   parseDateKey,
@@ -194,16 +199,75 @@ function GearIcon({ active }) {
     </svg>
   `;
 }
+function RulerIcon({ active }) {
+  return html`
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="2.5" y="8" width="19" height="8" rx="1.2" transform="rotate(-8 12 12)" stroke="currentColor" strokeWidth="1.7" fill=${active ? 'currentColor' : 'none'} fillOpacity=${active ? 0.15 : 0} />
+      <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M6.2 9.3l0.7 2.2M9.4 8.7l0.7 2.2M12.6 8.1l0.7 2.2M15.8 7.5l0.7 2.2" />
+      </g>
+    </svg>
+  `;
+}
+function MenuIcon({ active }) {
+  return html`
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </g>
+    </svg>
+  `;
+}
 
 const TABS = [
   { id: 'log', label: 'Log', icon: SunIcon },
   { id: 'peptides', label: 'Peptides', icon: VialIcon },
   { id: 'supplements', label: 'Supplements', icon: LeafIcon },
-  { id: 'history', label: 'History', icon: ClockIcon },
-  { id: 'settings', label: 'Settings', icon: GearIcon },
+  { id: 'calculator', label: 'Calculator', icon: RulerIcon },
 ];
 
-export function NavBar({ active, onChange }) {
+function MenuModal({ open, onClose, onSelect, onLogout }) {
+  return html`
+    <${Modal} open=${open} onClose=${onClose} title="Menu">
+      <div className="space-y-2">
+        <button
+          onClick=${() => onSelect('history')}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-ink-soft border border-ink-line"
+        >
+          <${ClockIcon} />
+          <span className="text-sm font-medium">History</span>
+        </button>
+        <button
+          onClick=${() => onSelect('settings')}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-ink-soft border border-ink-line"
+        >
+          <${GearIcon} />
+          <span className="text-sm font-medium">Settings</span>
+        </button>
+        <button
+          onClick=${onLogout}
+          className="w-full flex items-center gap-3 text-left px-3 py-3 rounded-lg bg-coral-soft border border-coral/30 mt-3"
+        >
+          <span className="text-sm font-medium text-coral">Log out</span>
+        </button>
+      </div>
+    <//>
+  `;
+}
+
+export function NavBar({ active, onChange, onLogout }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuActive = active === 'history' || active === 'settings';
+
+  function handleSelect(dest) {
+    onChange(dest);
+    setShowMenu(false);
+  }
+  function handleLogout() {
+    setShowMenu(false);
+    onLogout();
+  }
+
   return html`
     <nav className="fixed bottom-0 left-0 right-0 bg-ink-soft/95 backdrop-blur border-t border-ink-line safe-bottom z-40">
       <div className="max-w-md mx-auto flex">
@@ -220,8 +284,16 @@ export function NavBar({ active, onChange }) {
             </button>
           `;
         })}
+        <button
+          onClick=${() => setShowMenu(true)}
+          className=${`flex-1 flex flex-col items-center gap-1 py-2.5 ${menuActive ? 'text-amber' : 'text-paper-faint'}`}
+        >
+          <${MenuIcon} active=${menuActive} />
+          <span className="text-[11px] font-medium">Menu</span>
+        </button>
       </div>
     </nav>
+    <${MenuModal} open=${showMenu} onClose=${() => setShowMenu(false)} onSelect=${handleSelect} onLogout=${handleLogout} />
   `;
 }
 
@@ -277,6 +349,51 @@ function DaySelector({ value, onChange }) {
 function dayShortSummary(daysOfWeek) {
   if (!daysOfWeek || daysOfWeek.length === 0 || daysOfWeek.length === 7) return 'Daily';
   return DOW_KEYS.filter((k) => daysOfWeek.includes(k)).map((k) => DOW_LABELS[DOW_KEYS.indexOf(k)]).join(' ');
+}
+
+function blankBlendComponents() {
+  return [{ name: '', mg: '' }, { name: '', mg: '' }, { name: '', mg: '' }, { name: '', mg: '' }];
+}
+
+// Shared by AddPeptideModal (new vial) and PeptideCard (editing an existing
+// one) - a checkbox that reveals up to 4 {name, mg} rows for vials that mix
+// more than one peptide together.
+function BlendEditor({ isBlend, setIsBlend, components, setComponents }) {
+  function updateComponent(i, field, value) {
+    setComponents(components.map((c, idx) => (idx === i ? { ...c, [field]: value } : c)));
+  }
+  const sum = components.reduce((s, c) => s + (Number(c.mg) || 0), 0);
+
+  return html`
+    <div>
+      <label className="flex items-center gap-2 text-sm text-paper-dim mb-2">
+        <input type="checkbox" checked=${isBlend} onChange=${(e) => setIsBlend(e.target.checked)} />
+        This is a blend (multiple peptides in one vial)
+      </label>
+      ${isBlend && html`
+        <div className="space-y-2">
+          ${components.map((c, i) => html`
+            <div key=${i} className="flex gap-2">
+              <input
+                value=${c.name}
+                onChange=${(e) => updateComponent(i, 'name', e.target.value)}
+                placeholder=${`Peptide ${i + 1} name`}
+                className="input flex-1"
+              />
+              <input
+                type="number" step="any" inputMode="decimal"
+                value=${c.mg}
+                onChange=${(e) => updateComponent(i, 'mg', e.target.value)}
+                placeholder="mg"
+                className="input w-20 font-mono"
+              />
+            </div>
+          `)}
+          ${sum > 0 && html`<p className="text-xs text-paper-faint">Parts sum to ${sum} mg</p>`}
+        </div>
+      `}
+    </div>
+  `;
 }
 
 /* ===================== Log screen ===================== */
@@ -522,6 +639,7 @@ function PeptideLogList({ period, dateKey: dateKeyProp, readOnly }) {
     <div>
       ${scoped.map((p) => {
         const row = draft[p.id] || { taken: false, amount: '' };
+        const breakdown = row.taken && row.amount !== '' ? blendDoseBreakdown(p, row.amount, p.logUnit || 'mcg') : null;
         return html`
           <${Card} key=${p.id} className="mb-2.5">
             <div className="flex items-center gap-3">
@@ -538,6 +656,11 @@ function PeptideLogList({ period, dateKey: dateKeyProp, readOnly }) {
               />
               <span className="text-xs text-paper-dim w-12 shrink-0">${peptideUnitLabel(p.logUnit)}</span>
             </div>
+            ${breakdown && html`
+              <p className="text-xs text-teal-bright font-mono mt-2 pl-1">
+                ${breakdown.map((c) => `${c.mg.toFixed(2)}mg ${c.name}`).join(' · ')}
+              </p>
+            `}
           <//>
         `;
       })}
@@ -735,6 +858,208 @@ function WeightChart({ entries }) {
   `;
 }
 
+/* ===================== Calculator screen ===================== */
+
+const SYRINGE_SIZES = [
+  { id: '0.3', label: '0.3 mL (30 units)', maxUnits: 30 },
+  { id: '0.5', label: '0.5 mL (50 units)', maxUnits: 50 },
+  { id: '1.0', label: '1.0 mL (100 units)', maxUnits: 100 },
+];
+const VIAL_MG_PRESETS = [5, 10, 15];
+const BAC_ML_PRESETS = [1, 2, 3, 5];
+const DOSE_PRESETS = [
+  { v: 50, u: 'mcg' }, { v: 100, u: 'mcg' }, { v: 250, u: 'mcg' }, { v: 500, u: 'mcg' },
+  { v: 1, u: 'mg' }, { v: 2.5, u: 'mg' }, { v: 5, u: 'mg' }, { v: 10, u: 'mg' },
+];
+
+function CalculatorRuler({ maxUnits, value }) {
+  const width = 600;
+  const height = 70;
+  const padX = 10;
+  const usableWidth = width - padX * 2;
+  const clamped = Math.max(0, Math.min(value ?? 0, maxUnits));
+  const xFor = (u) => padX + (u / maxUnits) * usableWidth;
+  const fillWidth = xFor(clamped) - padX;
+
+  const ticks = [];
+  for (let u = 0; u <= maxUnits; u++) ticks.push(u);
+
+  return html`
+    <svg viewBox=${`0 0 ${width} ${height}`} className="w-full h-16" preserveAspectRatio="none">
+      <rect x=${padX} y="10" width=${fillWidth} height="24" fill="#F2760E" opacity="0.35" />
+      <line x1=${padX} y1="34" x2=${width - padX} y2="34" stroke="#5B6673" strokeWidth="1.5" />
+      ${ticks.map((u) => {
+        const isMajor = u % 5 === 0;
+        const x = xFor(u);
+        return html`
+          <g key=${u}>
+            <line x1=${x} y1=${isMajor ? 18 : 26} x2=${x} y2="34" stroke=${isMajor ? '#ECEFF3' : '#5B6673'} strokeWidth=${isMajor ? 1.5 : 1} />
+            ${isMajor && html`<text x=${x} y="50" fontSize="11" textAnchor="middle" fill="#8B96A3" fontFamily="monospace">${u}</text>`}
+          </g>
+        `;
+      })}
+      <line x1=${xFor(clamped)} y1="6" x2=${xFor(clamped)} y2="38" stroke="#F2760E" strokeWidth="2.5" />
+    </svg>
+  `;
+}
+
+function PresetChooser({ presets, value, onChange, otherValue, onOtherChange, formatLabel, placeholder }) {
+  return html`
+    <div>
+      <div className="grid grid-cols-4 gap-2">
+        ${presets.map((p) => html`
+          <button
+            key=${p}
+            type="button"
+            onClick=${() => onChange(p)}
+            className=${`py-2 rounded-lg text-xs font-medium border ${value === p ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+          >
+            ${formatLabel(p)}
+          </button>
+        `)}
+        <button
+          type="button"
+          onClick=${() => onChange('other')}
+          className=${`py-2 rounded-lg text-xs font-medium border ${value === 'other' ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+        >
+          Other
+        </button>
+      </div>
+      ${value === 'other' && html`
+        <input
+          type="number" step="any" inputMode="decimal"
+          value=${otherValue}
+          onChange=${(e) => onOtherChange(e.target.value)}
+          placeholder=${placeholder}
+          className="input font-mono mt-2"
+        />
+      `}
+    </div>
+  `;
+}
+
+export function CalculatorScreen() {
+  const [syringeId, setSyringeId] = useState('1.0');
+  const [vialMgChoice, setVialMgChoice] = useState(10);
+  const [vialMgOther, setVialMgOther] = useState('');
+  const [bacMlChoice, setBacMlChoice] = useState(2);
+  const [bacMlOther, setBacMlOther] = useState('');
+  const [doseChoice, setDoseChoice] = useState(4); // index into DOSE_PRESETS (4 = 1mg)
+  const [doseOtherValue, setDoseOtherValue] = useState('');
+  const [doseOtherUnit, setDoseOtherUnit] = useState('mg');
+
+  const syringe = SYRINGE_SIZES.find((sz) => sz.id === syringeId);
+  const vialMg = vialMgChoice === 'other' ? Number(vialMgOther) : vialMgChoice;
+  const bacMl = bacMlChoice === 'other' ? Number(bacMlOther) : bacMlChoice;
+  const dose = doseChoice === 'other' ? { v: Number(doseOtherValue), u: doseOtherUnit } : DOSE_PRESETS[doseChoice];
+  const doseMg = dose && dose.v ? (dose.u === 'mcg' ? dose.v / 1000 : dose.v) : 0;
+
+  const units = calculatorUnits(vialMg, bacMl, doseMg);
+  const exceeds = units != null && units > syringe.maxUnits;
+
+  return html`
+    <div className="px-4 pt-4 pb-28 max-w-md mx-auto safe-top">
+      <h1 className="font-display text-2xl font-semibold mb-1">Dose Calculator</h1>
+      <p className="text-paper-faint text-sm mb-6">Figure out how many units to draw for a target dose.</p>
+
+      <${Section} title="Syringe size">
+        <div className="grid grid-cols-1 gap-2">
+          ${SYRINGE_SIZES.map((sz) => html`
+            <button
+              key=${sz.id}
+              type="button"
+              onClick=${() => setSyringeId(sz.id)}
+              className=${`py-2.5 rounded-lg text-sm font-medium border text-left px-3 ${syringeId === sz.id ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+            >
+              ${sz.label}
+            </button>
+          `)}
+        </div>
+      <//>
+
+      <${Section} title="Peptide vial quantity (mg)">
+        <${PresetChooser}
+          presets=${VIAL_MG_PRESETS}
+          value=${vialMgChoice}
+          onChange=${setVialMgChoice}
+          otherValue=${vialMgOther}
+          onOtherChange=${setVialMgOther}
+          formatLabel=${(p) => `${p}mg`}
+          placeholder="Enter vial quantity (mg)"
+        />
+      <//>
+
+      <${Section} title="Bacteriostatic water (mL)">
+        <${PresetChooser}
+          presets=${BAC_ML_PRESETS}
+          value=${bacMlChoice}
+          onChange=${setBacMlChoice}
+          otherValue=${bacMlOther}
+          onOtherChange=${setBacMlOther}
+          formatLabel=${(p) => `${p}mL`}
+          placeholder="Enter BAC water amount (mL)"
+        />
+      <//>
+
+      <${Section} title="Desired dose">
+        <div className="grid grid-cols-4 gap-2">
+          ${DOSE_PRESETS.map((p, i) => html`
+            <button
+              key=${i}
+              type="button"
+              onClick=${() => setDoseChoice(i)}
+              className=${`py-2 rounded-lg text-xs font-medium border ${doseChoice === i ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+            >
+              ${p.v}${p.u}
+            </button>
+          `)}
+          <button
+            type="button"
+            onClick=${() => setDoseChoice('other')}
+            className=${`py-2 rounded-lg text-xs font-medium border ${doseChoice === 'other' ? 'bg-amber text-ink border-amber' : 'bg-ink-soft text-paper-dim border-ink-line'}`}
+          >
+            Other
+          </button>
+        </div>
+        ${doseChoice === 'other' && html`
+          <div className="flex gap-2 mt-2">
+            <input
+              type="number" step="any" inputMode="decimal"
+              value=${doseOtherValue}
+              onChange=${(e) => setDoseOtherValue(e.target.value)}
+              placeholder="Amount"
+              className="input font-mono flex-1"
+            />
+            <div className="flex bg-ink-soft border border-ink-line rounded-lg p-1">
+              ${['mg', 'mcg'].map((u) => html`
+                <button key=${u} type="button" onClick=${() => setDoseOtherUnit(u)}
+                  className=${`px-3 py-1.5 rounded-md text-sm ${doseOtherUnit === u ? 'bg-amber text-ink font-semibold' : 'text-paper-dim'}`}>
+                  ${u}
+                </button>
+              `)}
+            </div>
+          </div>
+        `}
+      <//>
+
+      ${units != null && html`
+        <${Card} className="mt-2">
+          <p className="text-sm text-paper-dim mb-1">
+            For a dose of ${dose.v}${dose.u}, pull the syringe to
+          </p>
+          <p className="font-display text-3xl font-semibold text-amber-bright mb-4">${units.toFixed(1)} units</p>
+          ${exceeds && html`
+            <p className="text-xs text-coral mb-3">
+              This exceeds your selected syringe's capacity (${syringe.maxUnits} units) — consider a larger syringe or smaller dose.
+            </p>
+          `}
+          <${CalculatorRuler} maxUnits=${syringe.maxUnits} value=${Math.min(units, syringe.maxUnits)} />
+        <//>
+      `}
+    </div>
+  `;
+}
+
 function WeightLogList({ period, dateKey: dateKeyProp, readOnly }) {
   const { user } = useAuth();
   const [weight, setWeight] = useState('');
@@ -868,6 +1193,16 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
   const [editSchedule, setEditSchedule] = useState(p.schedule || 'morning');
   const [editDays, setEditDays] = useState(p.daysOfWeek && p.daysOfWeek.length ? p.daysOfWeek : ALL_DAYS);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editIsBlend, setEditIsBlend] = useState(!!p.isBlend);
+  const [editBlendComponents, setEditBlendComponents] = useState(() => {
+    const existing = Array.isArray(p.blendComponents) ? p.blendComponents : [];
+    const padded = [...existing];
+    while (padded.length < 4) padded.push({ name: '', mg: '' });
+    return padded;
+  });
+  const [blendSavedFlash, setBlendSavedFlash] = useState(false);
+  const [editPriorUsed, setEditPriorUsed] = useState(String(p.priorUsedMg || 0));
+  const [priorUsedSavedFlash, setPriorUsedSavedFlash] = useState(false);
 
   const left = remainingMg(p, doses.filter((d) => d.peptideId === p.id));
   const pct = p.vialAmountMg ? left / p.vialAmountMg : 0;
@@ -879,6 +1214,19 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
     setTimeout(() => setSavedFlash(false), 1200);
   }
 
+  async function savePriorUsed() {
+    await updatePeptide(uid, p.id, { priorUsedMg: Number(editPriorUsed) || 0 });
+    setPriorUsedSavedFlash(true);
+    setTimeout(() => setPriorUsedSavedFlash(false), 1200);
+  }
+
+  async function saveBlend() {
+    const filtered = editBlendComponents.filter((c) => c.name.trim() && c.mg !== '');
+    await updatePeptide(uid, p.id, { isBlend: editIsBlend, blendComponents: filtered });
+    setBlendSavedFlash(true);
+    setTimeout(() => setBlendSavedFlash(false), 1200);
+  }
+
   return html`
     <${Card} className="mb-3">
       <div className="flex items-center justify-between mb-2">
@@ -887,6 +1235,9 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
           <span className="text-[10px] uppercase tracking-wide text-paper-faint border border-ink-line rounded px-1.5 py-0.5 shrink-0">
             ${scheduleBadge(p.schedule)} · ${dayShortSummary(p.daysOfWeek)}
           </span>
+          ${p.isBlend && html`
+            <span className="text-[10px] uppercase tracking-wide text-teal-bright border border-teal/40 rounded px-1.5 py-0.5 shrink-0">Blend</span>
+          `}
         </div>
         <${LabelChip} tone="amber" text=${`${concentration(p).toFixed(2)} mg/mL`} />
       </div>
@@ -927,6 +1278,35 @@ function PeptideCard({ peptide: p, doses, uid, expanded, onToggleExpand }) {
             <${Button} className="w-full mt-2" onClick=${saveSchedule}>
               ${savedFlash ? 'Saved ✓' : 'Save schedule'}
             <//>
+          </div>
+
+          <div className="pt-3">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Vial composition</p>
+            <${BlendEditor} isBlend=${editIsBlend} setIsBlend=${setEditIsBlend} components=${editBlendComponents} setComponents=${setEditBlendComponents} />
+            <${Button} className="w-full mt-2" onClick=${saveBlend}>
+              ${blendSavedFlash ? 'Saved ✓' : 'Save blend'}
+            <//>
+            ${p.isBlend && Array.isArray(p.blendComponents) && p.blendComponents.length > 0 && html`
+              <div className="mt-3 pt-3 border-t border-ink-line space-y-1.5">
+                ${p.blendComponents.map((c, i) => html`
+                  <p key=${i} className="text-xs text-paper-dim font-mono">
+                    ${c.name}: ${componentConcentration(p, Number(c.mg)).toFixed(2)}mg/mL · ${componentMcgPerUnit(p, Number(c.mg)).toFixed(1)}mcg/unit
+                  </p>
+                `)}
+              </div>
+            `}
+          </div>
+
+          <div className="pt-3">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Already used before tracking</p>
+            <div className="flex gap-2">
+              <input type="number" step="any" inputMode="decimal" value=${editPriorUsed}
+                onChange=${(e) => setEditPriorUsed(e.target.value)} placeholder="0" className="input font-mono flex-1" />
+              <${Button} className="shrink-0" onClick=${savePriorUsed}>
+                ${priorUsedSavedFlash ? 'Saved ✓' : 'Save'}
+              <//>
+            </div>
+            <p className="text-xs text-paper-faint mt-1.5">Adjust this if your remaining-amount estimate ever drifts.</p>
           </div>
 
           <div className="flex gap-2 pt-3">
@@ -1025,6 +1405,9 @@ function AddPeptideModal({ open, onClose }) {
   const [logUnit, setLogUnit] = useState('mcg');
   const [schedule, setSchedule] = useState('morning');
   const [daysOfWeek, setDaysOfWeek] = useState(ALL_DAYS);
+  const [isBlend, setIsBlend] = useState(false);
+  const [blendComponents, setBlendComponents] = useState(blankBlendComponents());
+  const [priorUsedMg, setPriorUsedMg] = useState('');
   const [reconstitutedDate, setReconstitutedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1035,8 +1418,10 @@ function AddPeptideModal({ open, onClose }) {
     e.preventDefault();
     setBusy(true);
     try {
+      const filteredBlend = blendComponents.filter((c) => c.name.trim() && c.mg !== '');
       await addPeptide(user.uid, {
-        name, source, reorderUrl, vialAmountMg, bacWaterMl, unitsPerMl, logUnit, schedule, daysOfWeek, reconstitutedDate, notes,
+        name, source, reorderUrl, vialAmountMg, bacWaterMl, unitsPerMl, logUnit, schedule, daysOfWeek,
+        isBlend, blendComponents: filteredBlend, priorUsedMg, reconstitutedDate, notes,
       });
       reset();
       onClose();
@@ -1047,6 +1432,7 @@ function AddPeptideModal({ open, onClose }) {
 
   function reset() {
     setName(''); setSource(''); setReorderUrl(''); setVialAmountMg(''); setBacWaterMl(''); setNotes('');
+    setIsBlend(false); setBlendComponents(blankBlendComponents()); setPriorUsedMg('');
   }
 
   return html`
@@ -1076,6 +1462,15 @@ function AddPeptideModal({ open, onClose }) {
         </div>
 
         ${conc && html`<p className="text-sm text-amber-bright font-mono">→ ${conc} mg/mL</p>`}
+
+        <${Field} label="Vial composition">
+          <${BlendEditor} isBlend=${isBlend} setIsBlend=${setIsBlend} components=${blendComponents} setComponents=${setBlendComponents} />
+        <//>
+
+        <${Field} label="Already used (mg) — if this vial isn't fresh">
+          <input type="number" step="any" inputMode="decimal" value=${priorUsedMg}
+            onChange=${(e) => setPriorUsedMg(e.target.value)} placeholder="0" className="input font-mono" />
+        <//>
 
         <div className="flex gap-3">
           <${Field} label="Log dose in" className="flex-1">
@@ -1121,15 +1516,31 @@ function AddPeptideModal({ open, onClose }) {
 
 /* ===================== Supplements screen (inventory) ===================== */
 
-function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
+function SupplementRow({ supplement: s, logs, uid, expanded, onToggleExpand }) {
   const [editSchedule, setEditSchedule] = useState(s.schedule || 'morning');
   const [editDays, setEditDays] = useState(s.daysOfWeek && s.daysOfWeek.length ? s.daysOfWeek : ALL_DAYS);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editContainerAmount, setEditContainerAmount] = useState(s.containerAmount != null ? String(s.containerAmount) : '');
+  const [editPriorUsed, setEditPriorUsed] = useState(String(s.priorUsedAmount || 0));
+  const [containerSavedFlash, setContainerSavedFlash] = useState(false);
+
+  const remaining = remainingSupplementAmount(s, (logs || []).filter((l) => l.supplementId === s.id));
+  const pct = remaining != null && s.containerAmount ? remaining / s.containerAmount : null;
+  const low = pct != null && pct < 0.15;
 
   async function saveSchedule() {
     await updateSupplement(uid, s.id, { schedule: editSchedule, daysOfWeek: editDays });
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1200);
+  }
+
+  async function saveContainer() {
+    await updateSupplement(uid, s.id, {
+      containerAmount: editContainerAmount === '' ? null : Number(editContainerAmount),
+      priorUsedAmount: Number(editPriorUsed) || 0,
+    });
+    setContainerSavedFlash(true);
+    setTimeout(() => setContainerSavedFlash(false), 1200);
   }
 
   return html`
@@ -1163,6 +1574,20 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
         </div>
       </div>
 
+      ${remaining != null && html`
+        <div className="mt-2.5">
+          <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+            <div
+              className=${`h-full rounded-full ${low ? 'bg-coral' : 'bg-teal'}`}
+              style=${{ width: `${Math.max(2, pct * 100)}%` }}
+            />
+          </div>
+          <span className=${`text-xs font-mono ${low ? 'text-coral' : 'text-paper-dim'}`}>
+            ${remaining}${s.unit === 'capsule' ? ' capsules' : s.unit} left of ${s.containerAmount}${s.unit === 'capsule' ? ' capsules' : s.unit}
+          </span>
+        </div>
+      `}
+
       ${expanded && html`
         <div className="mt-3 pt-3 border-t border-ink-line">
           <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Edit schedule</p>
@@ -1178,6 +1603,26 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
           <${Button} variant="tealPrimary" className="w-full mt-2" onClick=${saveSchedule}>
             ${savedFlash ? 'Saved ✓' : 'Save schedule'}
           <//>
+
+          <div className="pt-3 mt-3 border-t border-ink-line">
+            <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Container tracking (optional)</p>
+            <div className="flex gap-2 mb-2">
+              <label className="flex-1">
+                <span className="block text-[11px] text-paper-faint mb-1">Container size</span>
+                <input type="number" step="any" inputMode="decimal" value=${editContainerAmount}
+                  onChange=${(e) => setEditContainerAmount(e.target.value)} placeholder="e.g. 120" className="input font-mono" />
+              </label>
+              <label className="flex-1">
+                <span className="block text-[11px] text-paper-faint mb-1">Already used</span>
+                <input type="number" step="any" inputMode="decimal" value=${editPriorUsed}
+                  onChange=${(e) => setEditPriorUsed(e.target.value)} placeholder="0" className="input font-mono" />
+              </label>
+            </div>
+            <${Button} variant="tealPrimary" className="w-full" onClick=${saveContainer}>
+              ${containerSavedFlash ? 'Saved ✓' : 'Save container info'}
+            <//>
+            <p className="text-xs text-paper-faint mt-1.5">Leave container size blank to stop tracking remaining amount for this one.</p>
+          </div>
         </div>
       `}
     <//>
@@ -1187,12 +1632,15 @@ function SupplementRow({ supplement: s, uid, expanded, onToggleExpand }) {
 export function SupplementsScreen() {
   const { user } = useAuth();
   const [supplements, setSupplements] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     if (!user) return;
-    return listenSupplements(user.uid, setSupplements);
+    const u1 = listenSupplements(user.uid, setSupplements);
+    const u2 = listenRecentSupplementLogs(user.uid, setLogs, 500);
+    return () => { u1(); u2(); };
   }, [user]);
 
   return html`
@@ -1210,6 +1658,7 @@ export function SupplementsScreen() {
         <${SupplementRow}
           key=${s.id}
           supplement=${s}
+          logs=${logs}
           uid=${user.uid}
           expanded=${expanded === s.id}
           onToggleExpand=${() => setExpanded(expanded === s.id ? null : s.id)}
@@ -1231,6 +1680,8 @@ function AddSupplementModal({ open, onClose }) {
   const [schedule, setSchedule] = useState('morning');
   const [daysOfWeek, setDaysOfWeek] = useState(ALL_DAYS);
   const [reorderUrl, setReorderUrl] = useState('');
+  const [containerAmount, setContainerAmount] = useState('');
+  const [priorUsedAmount, setPriorUsedAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -1238,8 +1689,8 @@ function AddSupplementModal({ open, onClose }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await addSupplement(user.uid, { name, dosage, unit, schedule, daysOfWeek, reorderUrl, notes });
-      setName(''); setDosage(''); setReorderUrl(''); setNotes('');
+      await addSupplement(user.uid, { name, dosage, unit, schedule, daysOfWeek, reorderUrl, containerAmount, priorUsedAmount, notes });
+      setName(''); setDosage(''); setReorderUrl(''); setNotes(''); setContainerAmount(''); setPriorUsedAmount('');
       onClose();
     } finally {
       setBusy(false);
@@ -1290,6 +1741,20 @@ function AddSupplementModal({ open, onClose }) {
           <input type="url" value=${reorderUrl} onChange=${(e) => setReorderUrl(e.target.value)} placeholder="https://..." className="input" />
         </label>
 
+        <div className="flex gap-3">
+          <label className="block flex-1">
+            <span className="block text-xs text-paper-dim mb-1">Container size (optional)</span>
+            <input type="number" step="any" inputMode="decimal" value=${containerAmount}
+              onChange=${(e) => setContainerAmount(e.target.value)} placeholder=${`e.g. total ${unit}s in the bottle`} className="input font-mono" />
+          </label>
+          <label className="block flex-1">
+            <span className="block text-xs text-paper-dim mb-1">Already used</span>
+            <input type="number" step="any" inputMode="decimal" value=${priorUsedAmount}
+              onChange=${(e) => setPriorUsedAmount(e.target.value)} placeholder="0" className="input font-mono" />
+          </label>
+        </div>
+        <p className="text-xs text-paper-faint -mt-1.5">Leave container size blank if you don't want to track remaining amount for this one.</p>
+
         <label className="block">
           <span className="block text-xs text-paper-dim mb-1">Notes (optional)</span>
           <input value=${notes} onChange=${(e) => setNotes(e.target.value)} placeholder="With food, brand, etc." className="input" />
@@ -1321,16 +1786,47 @@ function ItemDetailModal({ open, onClose, item, kind }) {
   useEffect(() => {
     if (!user || !item || !open) return;
     const listener = kind === 'peptide' ? listenPeptideHistory : listenSupplementHistory;
-    return listener(user.uid, item.id, setHistory, 30);
+    // A generous limit here (not just "last 7 days") so the remaining-amount
+    // math below has this item's full dose history to work from, not just
+    // enough for the "last 7 days taken" list further down.
+    return listener(user.uid, item.id, setHistory, 500);
   }, [user, item, open, kind]);
 
   if (!open || !item) return null;
 
   const recent = history.filter((h) => h.taken).slice(0, HISTORY_DAYS);
 
+  const remainingP = kind === 'peptide' ? remainingMg(item, history) : null;
+  const pctP = kind === 'peptide' && item.vialAmountMg ? remainingP / item.vialAmountMg : 0;
+  const lowP = pctP < 0.15;
+
+  const remainingS = kind === 'supplement' ? remainingSupplementAmount(item, history) : null;
+  const pctS = kind === 'supplement' && item.containerAmount ? remainingS / item.containerAmount : 0;
+  const lowS = pctS < 0.15;
+
   return html`
     <${Modal} open=${open} onClose=${onClose} title=${item.name}>
       <div className="space-y-4">
+        ${kind === 'peptide' && html`
+          <div>
+            <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+              <div className=${`h-full rounded-full ${lowP ? 'bg-coral' : 'bg-amber'}`} style=${{ width: `${Math.max(2, pctP * 100)}%` }} />
+            </div>
+            <p className=${`text-sm font-mono ${lowP ? 'text-coral' : 'text-paper-dim'}`}>
+              ${remainingP.toFixed(1)} mg left of ${item.vialAmountMg} mg
+            </p>
+          </div>
+        `}
+        ${kind === 'supplement' && remainingS != null && html`
+          <div>
+            <div className="h-1.5 bg-ink-line rounded-full overflow-hidden mb-1.5">
+              <div className=${`h-full rounded-full ${lowS ? 'bg-coral' : 'bg-teal'}`} style=${{ width: `${Math.max(2, pctS * 100)}%` }} />
+            </div>
+            <p className=${`text-sm font-mono ${lowS ? 'text-coral' : 'text-paper-dim'}`}>
+              ${remainingS}${item.unit === 'capsule' ? ' capsules' : item.unit} left of ${item.containerAmount}${item.unit === 'capsule' ? ' capsules' : item.unit}
+            </p>
+          </div>
+        `}
         <div className="space-y-2 text-sm">
           ${kind === 'peptide' ? html`
             <${DetailRow} label="Source" value=${item.source || '—'} />
@@ -1339,6 +1835,21 @@ function ItemDetailModal({ open, onClose, item, kind }) {
             <${DetailRow} label="Concentration" value=${`${concentration(item).toFixed(2)} mg/mL`} />
             <${DetailRow} label=${`mcg per unit (U-${item.unitsPerMl || 100})`} value=${`${mcgPerUnit(item).toFixed(1)} mcg`} />
             <${DetailRow} label="Schedule" value=${scheduleFull(item.schedule)} />
+            ${item.isBlend && Array.isArray(item.blendComponents) && item.blendComponents.length > 0 && html`
+              <div className="pt-1">
+                <p className="text-xs text-paper-dim uppercase tracking-wide mb-1.5">Blend — per component</p>
+                <div className="space-y-1.5">
+                  ${item.blendComponents.map((c, i) => html`
+                    <div key=${i}>
+                      <p className="text-sm font-medium">${c.name}</p>
+                      <p className="text-xs text-paper-dim font-mono">
+                        ${c.mg}mg · ${componentConcentration(item, Number(c.mg)).toFixed(2)}mg/mL · ${componentMcgPerUnit(item, Number(c.mg)).toFixed(1)}mcg/unit
+                      </p>
+                    </div>
+                  `)}
+                </div>
+              </div>
+            `}
             ${item.notes && html`<${DetailRow} label="Notes" value=${item.notes} />`}
           ` : html`
             <${DetailRow} label="Dosage" value=${`${item.dosage} ${item.unit}`} />

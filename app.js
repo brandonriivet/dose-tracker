@@ -1,11 +1,11 @@
 import { html } from './react-setup.js';
 import { AuthProvider, useAuth } from './lib.js';
-import { Login, NavBar, LogScreen, PeptidesScreen, SupplementsScreen, HistoryScreen, SettingsScreen } from './screens.js';
+import { Login, NavBar, LogScreen, PeptidesScreen, SupplementsScreen, HistoryScreen, SettingsScreen, CalculatorScreen } from './screens.js';
 
 const { useState } = React;
 
 function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const [tab, setTab] = useState('log');
 
   if (loading) {
@@ -19,9 +19,10 @@ function App() {
       ${tab === 'log' && html`<${LogScreen} />`}
       ${tab === 'peptides' && html`<${PeptidesScreen} />`}
       ${tab === 'supplements' && html`<${SupplementsScreen} />`}
+      ${tab === 'calculator' && html`<${CalculatorScreen} />`}
       ${tab === 'history' && html`<${HistoryScreen} />`}
       ${tab === 'settings' && html`<${SettingsScreen} />`}
-      <${NavBar} active=${tab} onChange=${setTab} />
+      <${NavBar} active=${tab} onChange=${setTab} onLogout=${logout} />
     </div>
   `;
 }

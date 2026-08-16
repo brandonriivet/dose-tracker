@@ -54,6 +54,14 @@ the same component-based React you'd recognize from before.
 - **Log** — a date + a small daily quote up top, then Morning / Evening
   tabs, then Supplements / Peptides / Daily Weight sub-tabs. Toggle an
   item, type an amount, hit **Save**. **Clear all** resets before you save.
+- **Dose Calculator** — a standalone tab: pick a syringe size (0.3/0.5/1.0mL
+  — all standard U-100, so the size only sets the max units the barrel
+  holds, not the math), vial mg, BAC water, and desired dose (presets or
+  your own numbers), and it shows exactly how many units to draw, plus a
+  ruler-style visual with a filled bar to that point.
+- **Bottom nav** is Log / Peptides / Supplements / Calculator, with a **☰
+  menu** button replacing the old direct Settings tab — tap it for History,
+  Settings, or a one-tap **Log out** without going into Settings first.
 - **Navigate any day** — ‹ › arrows step one day at a time, or tap the
   date (or the 📅 icon) for a full month calendar to jump anywhere. Past
   days are fully editable — same toggle/amount/Save screen you use daily.
@@ -71,6 +79,22 @@ the same component-based React you'd recognize from before.
   Nothing is ever deleted; unsaved drafts just don't carry over.
 - **Peptides / Supplements** tabs — your inventory. Edit an existing item's
   schedule (time of day + days of week) any time your plan changes.
+- **Blend vials** — mark a peptide vial as a blend (multiple peptides
+  reconstituted together, up to 4), each with its own name and mg amount.
+  Shows a "Blend" badge on the card and the breakdown in the detail view;
+  editable any time from the vial's Details. Each component's own
+  concentration and mcg/unit are shown correctly (its own mg ÷ the vial's
+  water — never the vial's total mg), and while logging a dose for a blend,
+  a live line shows exactly how much of each component that amount
+  delivers (e.g. "1.00mg BPC-157 · 1.00mg TB-500").
+- **Adding a vial that's already partway used** — an "Already used (mg)"
+  field when adding a peptide (also editable later from its Details) so the
+  remaining-amount bar starts accurate instead of assuming a full vial.
+- **Optional supplement inventory tracking** — set a container size (and
+  "already used" if it's not a fresh bottle) on any supplement to get the
+  same kind of remaining-amount bar peptides have, so you know when to
+  reorder. Entirely opt-in — supplements without a container size set look
+  exactly as before.
 - **Weight tab** — a 30-day line chart of your logged weight, plus the
   existing recent-entries list.
 - **History** — merged timeline, with per-day and "export all" CSV

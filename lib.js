@@ -284,6 +284,9 @@ export function addPeptide(uid, data) {
     logUnit: data.logUnit || 'mcg',
     schedule: data.schedule || 'morning',
     daysOfWeek: data.daysOfWeek && data.daysOfWeek.length ? data.daysOfWeek : ALL_DAYS,
+    isBlend: !!data.isBlend,
+    blendComponents: data.isBlend && Array.isArray(data.blendComponents) ? data.blendComponents : [],
+    priorUsedMg: data.priorUsedMg ? Number(data.priorUsedMg) : 0,
     reconstitutedDate: data.reconstitutedDate ? Timestamp.fromDate(new Date(data.reconstitutedDate)) : serverTimestamp(),
     status: 'active',
     notes: data.notes || '',
@@ -314,6 +317,8 @@ export function addSupplement(uid, data) {
     schedule: data.schedule || 'morning',
     daysOfWeek: data.daysOfWeek && data.daysOfWeek.length ? data.daysOfWeek : ALL_DAYS,
     reorderUrl: data.reorderUrl || '',
+    containerAmount: data.containerAmount ? Number(data.containerAmount) : null,
+    priorUsedAmount: data.priorUsedAmount ? Number(data.priorUsedAmount) : 0,
     active: true,
     notes: data.notes || '',
     createdAt: serverTimestamp(),
@@ -457,7 +462,80 @@ export function remainingMg(peptide, dosesForThisPeptide) {
     if (dose.unit === 'ml') return sum + dose.amount * conc;
     return sum;
   }, 0);
-  return Math.max(0, peptide.vialAmountMg - usedMg);
+  const priorUsed = peptide.priorUsedMg || 0;
+  return Math.max(0, peptide.vialAmountMg - priorUsed - usedMg);
+}
+
+// Supplement container tracking is opt-in: returns null if containerAmount
+// was never set (nothing to track), so items you don't care to track stay
+// exactly as simple as before.
+export function remainingSupplementAmount(supplement, logsForThisSupplement) {
+  if (supplement.containerAmount == null) return null;
+  const priorUsed = supplement.priorUsedAmount || 0;
+  const used = logsForThisSupplement.reduce((sum, log) => {
+    if (!log.taken || log.amount == null) return sum;
+    return sum + log.amount;
+  }, 0);
+  return Math.max(0, supplement.containerAmount - priorUsed - used);
+}
+
+// ---------- Standalone dose calculator ----------
+// All syringe sizes here (0.3/0.5/1.0mL) use the same U-100 convention
+// (100 units = 1mL) - the syringe size only sets the max units the barrel
+// can physically hold, not the conversion math itself.
+export function calculatorUnits(vialMg, bacWaterMl, doseMg) {
+  if (!vialMg || !bacWaterMl || !doseMg) return null;
+  const concentration = vialMg / bacWaterMl; // mg/mL
+  const volumeMl = doseMg / concentration;
+  return volumeMl * 100;
+}
+
+// ---------- Blend math ----------
+// A blend vial has multiple peptides reconstituted together in the SAME
+// bacWaterMl. Each component's own concentration is its own mg divided by
+// the vial's water — never the vial's total mg. (E.g. 5mg + 5mg in 1mL
+// means each one is 5mg/mL, not 10mg/mL - the 10mg/mL figure is only the
+// combined total, useful for vial-depletion tracking, not per-component
+// dosing.)
+
+export function componentConcentration(peptide, componentMg) {
+  if (!componentMg || !peptide?.bacWaterMl) return 0;
+  return componentMg / peptide.bacWaterMl;
+}
+
+export function componentMcgPerUnit(peptide, componentMg) {
+  const conc = componentConcentration(peptide, componentMg);
+  const perMl = peptide?.unitsPerMl || 100;
+  return (conc * 1000) / perMl;
+}
+
+// Converts a logged/typed dose amount (in whatever unit was used - mg, mcg,
+// units, or mL) into the actual volume drawn, using the vial's TOTAL
+// concentration (since the unit you draw with only measures volume).
+export function doseVolumeMl(peptide, amount, unit) {
+  const n = Number(amount);
+  if (!n) return 0;
+  const totalConc = concentration(peptide);
+  if (unit === 'ml') return n;
+  if (unit === 'units') return n / (peptide?.unitsPerMl || 100);
+  if (unit === 'mg') return totalConc ? n / totalConc : 0;
+  if (unit === 'mcg') return totalConc ? n / 1000 / totalConc : 0;
+  return 0;
+}
+
+// Given a dose amount+unit for a blend peptide, returns how much of EACH
+// component that draw actually delivers - the thing you actually want to
+// know before pushing the plunger. Returns null for non-blend peptides.
+export function blendDoseBreakdown(peptide, amount, unit) {
+  if (!peptide?.isBlend || !Array.isArray(peptide.blendComponents) || peptide.blendComponents.length === 0) {
+    return null;
+  }
+  const volumeMl = doseVolumeMl(peptide, amount, unit);
+  if (!volumeMl) return null;
+  return peptide.blendComponents.map((c) => ({
+    name: c.name,
+    mg: componentConcentration(peptide, Number(c.mg)) * volumeMl,
+  }));
 }
 
 // ---------- Full wipe (Settings "danger zone") ----------
