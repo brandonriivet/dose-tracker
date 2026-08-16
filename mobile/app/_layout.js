@@ -4,8 +4,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationBar } from 'expo-navigation-bar';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/lib/auth';
+import { registerServiceWorker } from '../src/lib/pwa';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -55,8 +57,22 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  // No-op on iOS and Android; on web this is what makes the app installable
+  // and able to open offline.
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
   return (
     <SafeAreaProvider>
+      {/* Static rendering hands the document title to react-helmet, which
+          blanks it on mount unless a route declares one — so the <title> in
+          +html.js survives the first paint and then disappears. This sets
+          it from inside the app, which is what helmet is watching. On
+          native it's a no-op beyond Spotlight indexing. */}
+      <Head>
+        <title>Dose</title>
+      </Head>
       <AuthProvider>
         {/* Android draws the app behind both system bars — edge-to-edge is
             mandatory now, not a toggle — so there's no bar colour to set,
