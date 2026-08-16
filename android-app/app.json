@@ -10,7 +10,7 @@
     "backgroundColor": "#0A0908",
     "newArchEnabled": true,
     "android": {
-      "package": "com.riivet.dose",
+      "package": "com.nbv.dose",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
