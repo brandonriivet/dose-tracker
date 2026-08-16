@@ -1,0 +1,70 @@
+# Builds mobile/ for the web and publishes it to GitHub Pages.
+#
+# This replaces serving the plain-files app straight out of the repo root.
+# Nothing built is committed: Pages takes the artifact this job uploads, so
+# the 2 MB bundle never lands in git history.
+#
+# One-time setup: Settings → Pages → Source must be "GitHub Actions".
+# While it is still "Deploy from a branch", this workflow runs and the
+# deploy step fails, because the two sources are mutually exclusive.
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it — a half-published
+# site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+
+      - name: Export the web build
+        # EXPO_WEB_BASE_URL is what app.config.js turns into
+        # experiments.baseUrl. A project repo is served from /<repo>/, so
+        # without it every asset URL would point at the domain root and
+        # 404. Delete this line if you move to a custom domain.
+        env:
+          EXPO_WEB_BASE_URL: /${{ github.event.repository.name }}
+        run: npx expo export --platform web --output-dir dist
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

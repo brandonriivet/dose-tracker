@@ -9,21 +9,28 @@
 // build step to substitute anything in. So instead of a precache list, it
 // caches what it sees as it sees it, and versions the cache by name — bump
 // CACHE below to invalidate everything at once.
-const CACHE = 'dose-v1';
+const CACHE = 'dose-v2';
 
-// The app shell. '/' is the static-rendered index; the rest are the route
+// Everything is resolved against the worker's own directory rather than the
+// origin root, because GitHub Pages serves this from /<repo>/ and the
+// registration scope follows. ROOT is that directory: '/' on a custom
+// domain or locally, '/dose-tracker/' on Pages.
+const ROOT = new URL('./', self.location).pathname;
+const at = (path) => ROOT + path;
+
+// The app shell. '' is the static-rendered index; the rest are the route
 // documents Expo emits, so a hard refresh on any of them works offline.
 const SHELL = [
-  '/',
-  '/login',
-  '/peptides',
-  '/supplements',
-  '/history',
-  '/settings',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-];
+  '',
+  'login',
+  'peptides',
+  'supplements',
+  'history',
+  'settings',
+  'manifest.webmanifest',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+].map(at);
 
 // The JS bundle is the one thing the app cannot boot without, and its
 // filename is hashed per build so SHELL can't name it. Rather than add a
@@ -32,10 +39,10 @@ const SHELL = [
 // definition the current bundle.
 async function precacheBundle(cache) {
   try {
-    const res = await fetch('/', { cache: 'reload' });
+    const res = await fetch(ROOT, { cache: 'reload' });
     if (!res.ok) return;
     const html = await res.text();
-    const urls = [...html.matchAll(/<(?:script|link)[^>]+(?:src|href)="(\/_expo\/[^"]+)"/g)].map(
+    const urls = [...html.matchAll(/<(?:script|link)[^>]+(?:src|href)="([^"]*\/_expo\/[^"]+)"/g)].map(
       (m) => m[1]
     );
     await Promise.all(urls.map((u) => cache.add(u).catch(() => {})));
@@ -94,7 +101,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((cache) => cache.put(request, copy));
           return response;
         })
-        .catch(() => caches.match(request).then((hit) => hit || caches.match('/')))
+        .catch(() => caches.match(request).then((hit) => hit || caches.match(ROOT)))
     );
     return;
   }
