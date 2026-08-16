@@ -10,7 +10,9 @@ same Firestore data, on the same account:
   press-dim on iOS, the Material dialog, ripples and adaptive icon on
   Android, a plain download for CSV export on the web. Runs via Expo Go, or
   as a proper home-screen app via an EAS build — sideloadable as an APK on
-  Android, needing a paid Apple account on iOS.
+  Android, needing a paid Apple account on iOS. Its web target is a full
+  PWA: manifest, service worker, installs to a home screen and opens
+  offline.
 - **the repo root — the web app**, documented below. Plain files on GitHub
   Pages. This is still what Pages serves; `mobile/`'s web build is a
   replacement candidate, weighed up in

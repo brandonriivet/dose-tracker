@@ -80,9 +80,15 @@ src/
   lib/quotes.js            the daily quote
   lib/csv.shared.js        rows -> CSV text, shared by all three
   lib/csv.js               native: share sheet.  csv.web.js: browser download
+  lib/pwa.js               no-op on native.  pwa.web.js registers the worker
   components/              Card, Button, Toggle, Modal, calendar, chart, …
   components/DateField.*   inline picker (iOS), dialog (Android), calendar (web)
 assets/                  icons (incl. Android adaptive layers) and splash
+app/+html.js             the web document shell — manifest link, meta tags
+public/                  copied verbatim into the web build
+  manifest.webmanifest     the PWA manifest
+  sw.js                    the service worker
+  icons/                   192/512 icons, plain and maskable
 ```
 
 ## How the platforms differ
@@ -135,33 +141,74 @@ cannot share a file.
 | CSV export | share sheet | share sheet | file download |
 | Haptics | yes | yes | no — the calls reject and are swallowed |
 
-## Replacing the plain-HTML web app
+## The web build as a PWA
 
-The repo root still holds the original web app — plain HTML/JS, React from
-a CDN, deployed to GitHub Pages. This project can serve the same purpose:
+It installs to a home screen and opens offline, the same as the plain-files
+app at the repo root.
+
+`app.json` sets `web.output` to **`static`**, not `single`. That matters:
+`app/+html.js` — the only place to put a `<link rel="manifest">` or a
+`theme-color` — is **ignored under `single`**, which uses a fixed template.
+Static rendering also emits one HTML document per route, so `/settings` is a
+real file and deep links work on a plain static host with no rewrite rules.
+
+Three pieces make up the PWA:
+
+- **`app/+html.js`** — the document head: manifest link, `theme-color` (so
+  the browser chrome matches the app rather than flashing white), and
+  Apple's own meta tags, which predate the manifest spec and are still what
+  iOS Safari reads for "Add to Home Screen".
+- **`public/manifest.webmanifest`** — name, standalone display, ink
+  background, and the four icons carried over from the root web app.
+- **`public/sw.js`** — the service worker. Anything in `public/` is copied
+  verbatim into the export, which is what lets the worker sit at the root
+  scope it needs.
+
+### How the worker caches
+
+Hand-written and small, rather than generated. Two rules do the work:
+
+- **Cross-origin requests are passed straight through.** Every one of them
+  is Firebase — auth tokens, Firestore listeners — where a stale reply is
+  worse than no reply. The handler returns without calling `respondWith`,
+  so the browser handles it as if no worker existed.
+- **Same-origin is cache-first**, because Metro hashes build artefacts into
+  their filenames: if it's in the cache it cannot be stale. Navigations are
+  the exception and go network-first, so a deploy is picked up immediately,
+  falling back to the cached document offline.
+
+The one wrinkle is that the JS bundle's filename is hashed per build, so a
+static `sw.js` can't name it in a precache list. Rather than add a build
+step to substitute it in, the worker fetches `/` during install and reads
+the script tags out of it — whatever the shell is loading is by definition
+the current bundle. Without that, the first offline load renders a blank
+page: the cached HTML arrives, then asks for a bundle nothing ever cached.
+
+To invalidate everything, bump `CACHE` in `public/sw.js`. The activate
+handler deletes every cache that isn't the current name.
+
+**Verified in Chromium, not assumed:** the worker registers and activates,
+the manifest parses with all four icons, and a reload with the network
+disabled renders the login screen with no console errors.
+
+### Replacing the plain-HTML web app
+
+The repo root still holds the original — plain HTML/JS, React from a CDN,
+deployed to GitHub Pages, and still what Pages serves.
 
 ```bash
-npm run bundle:web        # -> .expo-export-web/ (index.html + one JS bundle)
+npm run bundle:web        # -> .expo-export-web/
 ```
 
-`app.json` sets `web.output` to `single`, so that's a single-page app: one
-`index.html` that boots the router client-side. To put it on Pages, copy
-the contents of `.expo-export-web/` to wherever Pages serves from, and make
-sure unknown paths fall back to `index.html` or deep links will 404.
+Copy the contents of `.expo-export-web/` to wherever Pages serves from.
+With static output there is no fallback rule to configure.
 
-Two things to weigh before switching:
-
-- **Bundle size.** The RN-for-web bundle is ~2.2 MB of JavaScript before
-  compression. The plain-files app ships a fraction of that. For a personal
-  tracker on a good connection this is a non-issue; on a cold 3G load it is
-  not.
-- **The PWA bits.** `manifest.webmanifest` and `service-worker.js` at the
-  repo root give the current web app its install prompt and offline shell.
-  This build has neither yet — Expo's web output doesn't register a service
-  worker.
-
-Until both are settled, keeping the plain-files app as what Pages serves is
-the safer default.
+One thing still argues against switching: **bundle size**. The RN-for-web
+bundle is ~2.2 MB of JavaScript before compression, against a fraction of
+that for the plain files. The service worker means you pay it once rather
+than on every visit, but the first load is the first load. For a personal
+tracker on a good connection it doesn't matter; on a cold mobile connection
+it does.
 
 Firestore on native is also pinned to long polling (`src/firebase.js`). Its
 default streaming transport isn't fully supported by React Native's
@@ -198,7 +245,12 @@ it does catch a `.web.js` file that a refactor left behind.
 
 The web target is the one you can actually *run* in CI: serve
 `.expo-export-web/` and drive it with Playwright, and you get real render
-coverage for every screen the other two share.
+coverage for every screen the other two share. That is how the service
+worker and the offline reload above were checked.
+
+Note that `sw.js` and `manifest.webmanifest` live in `public/` and are
+copied, not bundled — so a typo in either survives `bundle:web` untouched
+and only shows up when the page is actually loaded.
 
 `prebuild` is the one that matters for `app.json` changes: it turns that
 config into a real `AndroidManifest.xml` / `Info.plist`, so it's how you
