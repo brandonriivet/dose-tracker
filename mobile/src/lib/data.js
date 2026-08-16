@@ -38,6 +38,22 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ALL_DAYS } from './dates';
+// The dosing arithmetic is shared with dose-tracker-plain — re-exported
+// here so screens keep importing it from '../lib/data' as before. The
+// shared remainingMg also honours peptide.priorUsedMg, which this app's
+// old local copy silently ignored.
+export {
+  blendDoseBreakdown,
+  calculatorUnits,
+  componentConcentration,
+  componentMcgPerUnit,
+  concentration,
+  doseVolumeMl,
+  mcgPerUnit,
+  remainingMg,
+  remainingSupplementAmount,
+} from '../../../shared/dosing.js';
+
 
 const userCol = (uid, name) => collection(db, 'users', uid, name);
 const logId = (dk, period, itemId) => `${dk}_${period}_${itemId}`;
@@ -222,30 +238,8 @@ export function deleteWeightLogEntry(uid, id) {
 
 // ---------- Derived math ----------
 
-export function concentration(peptide) {
-  if (!peptide?.vialAmountMg || !peptide?.bacWaterMl) return 0;
-  return peptide.vialAmountMg / peptide.bacWaterMl;
-}
 
-export function mcgPerUnit(peptide) {
-  const conc = concentration(peptide);
-  const perMl = peptide?.unitsPerMl || 100;
-  return (conc * 1000) / perMl;
-}
 
-export function remainingMg(peptide, dosesForThisPeptide) {
-  const conc = concentration(peptide);
-  const perUnit = mcgPerUnit(peptide);
-  const usedMg = dosesForThisPeptide.reduce((sum, dose) => {
-    if (!dose.taken || dose.amount == null) return sum;
-    if (dose.unit === 'mg') return sum + dose.amount;
-    if (dose.unit === 'mcg') return sum + dose.amount / 1000;
-    if (dose.unit === 'units') return sum + (dose.amount * perUnit) / 1000;
-    if (dose.unit === 'ml') return sum + dose.amount * conc;
-    return sum;
-  }, 0);
-  return Math.max(0, peptide.vialAmountMg - usedMg);
-}
 
 // ---------- Full wipe (Settings "danger zone") ----------
 // Deletes every document across all 5 collections for this account.

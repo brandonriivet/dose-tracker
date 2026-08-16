@@ -5,6 +5,7 @@ built once and rendered to three targets — iOS, Android and the browser —
 from a single React Native codebase in **[`mobile/`](mobile/README.md)**.
 
 ```
+shared/                logic both apps import — dates, dosing, quotes, CSV
 mobile/                the app: iOS, Android, and the web build
 dose-tracker-plain/    the original plain-HTML web app, kept as a fallback
 firestore.rules        the security rules, shared by everything
@@ -46,11 +47,40 @@ one-time cost rather than a per-visit one, which is what made the switch
 reasonable, but on a cold connection the first load is still the first
 load.
 
-If you keep both, be aware they don't share code. `dateKey`,
-`quoteOfTheDay`, `isScheduledOn` and `remainingMg` exist in both
-`dose-tracker-plain/lib.js` and `mobile/src/lib/` — so a change to dosing
-logic has to be made twice. Extracting those pure helpers into a shared
-folder would fix the logic half; the UIs stay separate regardless.
+One caveat on serving it: `lib.js` imports from `../shared/`, so the plain
+app has to be served from the repo root, the way Pages used to serve it.
+Serving `dose-tracker-plain/` as its own root would put those imports above
+the document root and they'd 404.
+
+## `shared/`
+
+The dates, dosing maths, daily quote and CSV serialisation used to exist
+twice — once in `dose-tracker-plain/lib.js` and again under
+`mobile/src/lib/`. They now live here once, and both apps re-export them,
+so a change to how a dose is calculated reaches every platform.
+
+```
+shared/dates.js    the 4am rollover, dateKeys, day-of-week scheduling
+shared/dosing.js   concentration, remaining amounts, the reconstitution calculator
+shared/quotes.js   the daily quote
+shared/csv.js      rows -> CSV text
+```
+
+**Nothing in `shared/` may import anything but its own siblings.** The plain
+app loads these straight into the browser as ES modules with no build step,
+and Metro bundles the same files for iOS, Android and web — an import of a
+node module or a CDN URL would break one of those. Keeping it to pure
+functions over plain objects is what lets one file serve all four targets.
+
+What isn't shared is the UI, and it can't be: the plain app renders DOM and
+`mobile/` renders React Native components. `mobile/`'s own web build is the
+answer to that — it's the same components on all three platforms.
+
+Deduplicating turned up one real drift. The plain app's `remainingMg`
+subtracts `peptide.priorUsedMg`, carry-over from a previous vial; the
+phone's copy never learned about it, so the two disagreed about how much
+was left. The shared version keeps the subtraction, and `|| 0` means vials
+without the field behave exactly as the phone always did.
 
 ## Firebase
 
